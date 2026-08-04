@@ -213,8 +213,17 @@
   .opt.na[aria-pressed="true"]{background:var(--na-soft);border-color:var(--na);color:var(--na)}
   .opt.act[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
 
-  /* ---------- Criteria ---------- */
-  .crit{border-bottom:1px solid var(--line-soft);padding:15px 16px}
+  /* ---------- Criteria (um cartão de cada vez) ---------- */
+  .crit-progress{padding:13px 16px 0}
+  .crit-progress-bar{height:5px;border-radius:100px;background:var(--line-soft);overflow:hidden}
+  .crit-progress-bar span{display:block;height:100%;width:0;background:var(--accent);
+    border-radius:100px;transition:width .3s ease}
+  .crit-progress-lbl{font-size:11.5px;color:var(--muted);font-weight:600;margin-top:6px}
+  .crit-nav{display:flex;gap:10px;padding:4px 16px 16px}
+  .crit-nav .btn{flex:1}
+  .crit-nav .btn:disabled{opacity:.35;pointer-events:none}
+  .crit{border-bottom:1px solid var(--line-soft);padding:15px 16px;animation:critIn .18s ease}
+  @keyframes critIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
   .crit:last-child{border-bottom:none}
   .crit-head{display:flex;align-items:flex-start;gap:10px}
   .crit-n{
@@ -463,7 +472,15 @@
       <div class="block-title">
         <div><div class="eyebrow">Passo 3</div><h3>É acessível?</h3></div>
       </div>
+      <div class="crit-progress">
+        <div class="crit-progress-bar"><span id="critProgressFill"></span></div>
+        <div class="crit-progress-lbl" id="critProgressLbl"></div>
+      </div>
       <div id="critList"></div>
+      <div class="crit-nav">
+        <button class="btn btn-ghost btn-sm" id="critPrevBtn" onclick="critPrev()">‹ Voltar</button>
+        <button class="btn btn-ghost btn-sm" id="critNextBtn" onclick="critNext()">Seguinte ›</button>
+      </div>
     </section>
 
     <button class="btn btn-ghost" onclick="saveEval()" style="margin-bottom:10px">Guardar</button>
@@ -529,6 +546,70 @@ function applyActivityScope(force){
       a.resp=null; a.auto=false; // volta a ser aplicável → liberta a resposta automática
     }
   });
+}
+
+/* ---------- Critérios: um cartão de cada vez ---------- */
+let critIndex = 0;
+function applicableCriteria(){
+  return CRITERIA.filter(c=>!current.answers[c.k].auto);
+}
+function critStartIndex(){
+  const list=applicableCriteria();
+  const firstUnanswered=list.findIndex(c=>!current.answers[c.k].resp);
+  return firstUnanswered>=0 ? firstUnanswered : Math.max(0,list.length-1);
+}
+function renderCritCard(){
+  const list=applicableCriteria();
+  const cl=document.getElementById("critList");
+  if(!list.length){
+    cl.innerHTML=`<div class="crit"><p style="margin:0;color:var(--muted)">Sem critérios aplicáveis a esta atividade.</p></div>`;
+    updateCritProgress(list);
+    return;
+  }
+  if(critIndex<0) critIndex=0;
+  if(critIndex>list.length-1) critIndex=list.length-1;
+  const c=list[critIndex], i=CRITERIA.indexOf(c), a=current.answers[c.k];
+  const added = c.added ? `<em>(referência sugerida — pode editar)</em>` : ``;
+  cl.innerHTML=`<div class="crit ${a.resp?'answered':''}" id="crit-${c.k}">
+    <div class="crit-head">
+      <span class="crit-n">${i+1}</span>
+      <span class="crit-name">${esc(c.n)}${CRITICAL.includes(c.k)?'<span class="crit-flag">eliminatório</span>':''}</span>
+      <button class="info-toggle" onclick="toggleInfo('${c.k}')" aria-expanded="false" id="tog-${c.k}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        info
+      </button>
+    </div>
+    <div class="auto-note" id="auto-${c.k}" style="display:none"></div>
+    <div class="info-box" id="info-${c.k}">
+      <span class="lbl">Norma técnica</span>${esc(c.info)} ${added}
+    </div>
+    <div class="seg three" role="group">
+      <button class="opt sim" data-v="Sim" onclick="answer('${c.k}','Sim',this)">Sim</button>
+      <button class="opt nao" data-v="Não" onclick="answer('${c.k}','Não',this)">Não</button>
+      <button class="opt na"  data-v="N/a" onclick="answer('${c.k}','N/a',this)">N/a</button>
+    </div>
+    <textarea placeholder="Observações…" oninput="setObs('${c.k}',this.value)">${esc(a.obs||"")}</textarea>
+  </div>`;
+  refreshCrit(c.k);
+  updateCritProgress(list);
+}
+function updateCritProgress(list){
+  const lbl=document.getElementById("critProgressLbl"), fill=document.getElementById("critProgressFill");
+  const prevBtn=document.getElementById("critPrevBtn"), nextBtn=document.getElementById("critNextBtn");
+  if(!list.length){
+    lbl.textContent="Sem critérios aplicáveis"; fill.style.width="0%";
+    prevBtn.disabled=true; nextBtn.disabled=true; return;
+  }
+  lbl.textContent=`Critério ${critIndex+1} de ${list.length}`;
+  fill.style.width=Math.round(((critIndex+1)/list.length)*100)+"%";
+  prevBtn.disabled=critIndex===0;
+  nextBtn.disabled=critIndex===list.length-1;
+}
+function critPrev(){ critIndex--; renderCritCard(); }
+function critNext(){ critIndex++; renderCritCard(); }
+function advanceAfterAnswer(){
+  const list=applicableCriteria();
+  if(critIndex<list.length-1) setTimeout(()=>{ critIndex++; renderCritCard(); },320);
 }
 
 /* Regra do selo — critérios eliminatórios: entrada, circulação e porta (pivotante ou automática) */
@@ -794,37 +875,12 @@ function buildForm(){
   setSeg("fAtividade",r.atividade);
   setSeg("fAmbito",r.ambito);
   document.getElementById("delBtn").style.display = r.criado ? "" : "none";
-  // critérios
-  const cl=document.getElementById("critList");
-  cl.innerHTML=CRITERIA.map((c,i)=>{
-    const a=r.answers[c.k];
-    const added = c.added ? `<em>(referência sugerida — pode editar)</em>` : ``;
-    return `<div class="crit ${a.resp?'answered':''}" id="crit-${c.k}">
-      <div class="crit-head">
-        <span class="crit-n">${i+1}</span>
-        <span class="crit-name">${esc(c.n)}${CRITICAL.includes(c.k)?'<span class="crit-flag">eliminatório</span>':''}</span>
-        <button class="info-toggle" onclick="toggleInfo('${c.k}')" aria-expanded="false" id="tog-${c.k}">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
-          info
-        </button>
-      </div>
-      <div class="auto-note" id="auto-${c.k}" style="display:none"></div>
-      <div class="info-box" id="info-${c.k}">
-        <span class="lbl">Norma técnica</span>${esc(c.info)} ${added}
-      </div>
-      <div class="seg three" role="group">
-        <button class="opt sim" data-v="Sim" onclick="answer('${c.k}','Sim',this)">Sim</button>
-        <button class="opt nao" data-v="Não" onclick="answer('${c.k}','Não',this)">Não</button>
-        <button class="opt na"  data-v="N/a" onclick="answer('${c.k}','N/a',this)">N/a</button>
-      </div>
-      <textarea placeholder="Observações…" oninput="setObs('${c.k}',this.value)">${esc(a.obs||"")}</textarea>
-    </div>`;
-  }).join("");
   // foto
   renderPhoto();
-  // âmbito por atividade (N/a automático) + aplicar respostas guardadas
+  // âmbito por atividade (N/a automático) + critérios, um cartão de cada vez
   applyActivityScope(false);
-  CRITERIA.forEach(c=>refreshCrit(c.k));
+  critIndex = critStartIndex();
+  renderCritCard();
   // ligar inputs de texto
   document.getElementById("fNome").oninput=e=>{current.nome=e.target.value;
     document.getElementById("topTitle").textContent=e.target.value||"Nova avaliação";};
@@ -847,7 +903,7 @@ function pickAct(btn){
   if(same){ current.atividade=null; }
   else{ btn.setAttribute("aria-pressed","true"); current.atividade=btn.dataset.v; }
   applyActivityScope(true);
-  Object.keys(ACTIVITY_SCOPE).forEach(refreshCrit);
+  renderCritCard(); // a lista de critérios aplicáveis pode ter mudado
   updateVerdict();
 }
 function pickSNA(btn,gid){
@@ -866,6 +922,7 @@ function answer(k,val,btn){
   document.getElementById("crit-"+k).classList.toggle("answered", !!current.answers[k].resp);
   updateAutoNote(k);
   updateVerdict();
+  if(!same) advanceAfterAnswer();
 }
 function setObs(k,v){ current.answers[k].obs=v; }
 
@@ -1016,6 +1073,10 @@ function finalizeEval(){
   doFinalize();
 }
 function highlightCrit(k){
+  const idx=applicableCriteria().findIndex(c=>c.k===k);
+  if(idx<0) return;
+  critIndex=idx;
+  renderCritCard();
   const el=document.getElementById("crit-"+k);
   if(!el) return;
   el.scrollIntoView({behavior:"smooth",block:"center"});
