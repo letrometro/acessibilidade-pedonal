@@ -120,12 +120,17 @@
   .s-num{font-size:40px;font-weight:800;letter-spacing:-1.5px;line-height:1}
   .s-lbl{font-size:13px;color:#AFBBD2;font-weight:600}
   .s-stats{display:flex;gap:8px;margin-top:15px}
-  .s-stat{flex:1;background:rgba(255,255,255,.09);border-radius:12px;padding:11px 6px;text-align:center}
+  .s-stat{flex:1;background:rgba(255,255,255,.09);border-radius:12px;padding:11px 6px;text-align:center;
+    font-family:inherit;color:inherit;border:1.5px solid transparent}
+  .s-stat.clickable:active{background:rgba(255,255,255,.18)}
+  .s-stat.active{border-color:currentColor;background:rgba(255,255,255,.18)}
   .s-stat .n{font-size:21px;font-weight:800;line-height:1}
   .s-stat .t{font-size:10.5px;color:#AFBBD2;font-weight:600;margin-top:4px;letter-spacing:.1px}
   .s-stat.ok .n{color:#69DDA0}
   .s-stat.no .n{color:#FF9E9E}
   .s-stat.inc .n{color:#CBD6E8}
+  .s-big.clickable{cursor:pointer}
+  .s-big.clickable:active .s-num{opacity:.7}
   .s-conf{display:flex;justify-content:space-between;align-items:center;margin-top:13px;
     padding-top:12px;border-top:1px solid rgba(255,255,255,.12);font-size:13px;color:#AFBBD2;font-weight:600}
   .s-conf b{color:#fff;font-size:17px;font-weight:800}
@@ -578,6 +583,7 @@ if(window.Sync) Sync.wrapStore(Store); // ponto único de integração com a sin
 let records = [];
 let current = null; // registo em edição
 let activeTab = "todas";
+let activeSeloFilter = null; // null | "atribuido" | "excluido" | "pendente"
 
 function blankRecord(){
   const answers = {};
@@ -679,6 +685,11 @@ const EMPTY_MSG={
   curso:{ico:"🗂️",t:"Nada em curso",s:"Não há rascunhos por terminar."},
   realizadas:{ico:"🏁",t:"Sem avaliações finalizadas",s:"Toque em “Finalizar avaliação” para concluir um registo."}
 };
+const SELO_EMPTY_MSG={
+  atribuido:{ico:"✅",t:"Sem avaliações com selo",s:"Toque no número total para ver todas."},
+  excluido:{ico:"🚫",t:"Sem avaliações excluídas",s:"Toque no número total para ver todas."},
+  pendente:{ico:"◐",t:"Sem avaliações pendentes",s:"Toque no número total para ver todas."}
+};
 function recStatus(r){ return r.status==="realizada" ? "realizada" : "rascunho"; }
 function filteredRecords(){
   if(activeTab==="realizadas") return records.filter(r=>recStatus(r)==="realizada");
@@ -686,6 +697,10 @@ function filteredRecords(){
   return records.slice();
 }
 function setTab(f){ activeTab=f; renderList(); }
+function setSeloFilter(state){
+  activeSeloFilter = activeSeloFilter===state ? null : state; // tocar outra vez desliga o filtro
+  renderList();
+}
 
 function renderSummary(list){
   const el=document.getElementById("summaryCard");
@@ -695,12 +710,15 @@ function renderSummary(list){
     if(v.pct!==null){pctSum+=v.pct;pctN++;} });
   const avg=pctN?Math.round(pctSum/pctN):null, total=list.length;
   const lbl=(total===1?"avaliação":"avaliações")+(TAB_LABEL[activeTab]?" · "+TAB_LABEL[activeTab]:"");
+  const active=s=>activeSeloFilter===s?" active":"";
   el.innerHTML=`
-    <div class="s-big"><span class="s-num">${total}</span><span class="s-lbl">${lbl}</span></div>
+    <button class="s-big clickable" onclick="setSeloFilter(null)" title="Ver todas">
+      <span class="s-num">${total}</span><span class="s-lbl">${lbl}</span>
+    </button>
     <div class="s-stats">
-      <div class="s-stat ok"><div class="n">${comSelo}</div><div class="t">Com selo</div></div>
-      <div class="s-stat no"><div class="n">${excl}</div><div class="t">Excluídos</div></div>
-      <div class="s-stat inc"><div class="n">${pend}</div><div class="t">Pendentes</div></div>
+      <button class="s-stat ok clickable${active('atribuido')}" onclick="setSeloFilter('atribuido')"><div class="n">${comSelo}</div><div class="t">Com selo</div></button>
+      <button class="s-stat no clickable${active('excluido')}" onclick="setSeloFilter('excluido')"><div class="n">${excl}</div><div class="t">Excluídos</div></button>
+      <button class="s-stat inc clickable${active('pendente')}" onclick="setSeloFilter('pendente')"><div class="n">${pend}</div><div class="t">Pendentes</div></button>
     </div>
     ${avg!==null?`<div class="s-conf"><span>Conformidade média</span><b>${avg}%</b></div>`:``}`;
 }
@@ -724,12 +742,14 @@ function renderList(){
   const list=filteredRecords();
   renderSummary(list);
 
-  if(!list.length){
-    const m=EMPTY_MSG[activeTab];
+  const displayList = activeSeloFilter ? list.filter(r=>selo(r).state===activeSeloFilter) : list;
+
+  if(!displayList.length){
+    const m = list.length ? SELO_EMPTY_MSG[activeSeloFilter] : EMPTY_MSG[activeTab];
     body.innerHTML=`<div class="empty"><div class="ico">${m.ico}</div><p>${m.t}</p><span>${m.s}</span></div>`;
     return;
   }
-  const sorted=[...list].sort((a,b)=>(b.atualizado||0)-(a.atualizado||0));
+  const sorted=[...displayList].sort((a,b)=>(b.atualizado||0)-(a.atualizado||0));
   body.innerHTML=`<div class="card-list">`+sorted.map(r=>{
     const v=verdict(r);
     const s=selo(r);

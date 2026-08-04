@@ -1,7 +1,7 @@
 /* Service worker — funcionamento offline da app.
    Sempre que alterares o index.html ou os ícones, incrementa a versão do CACHE
    (ex.: v1 -> v2) para forçar a atualização nos dispositivos já instalados. */
-const CACHE = "acessibilidade-v2";
+const CACHE = "acessibilidade-v3";
 const ASSETS = [
   "./",
   "./index.html",
