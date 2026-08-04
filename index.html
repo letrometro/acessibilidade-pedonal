@@ -66,6 +66,9 @@
     color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);
     padding:6px 10px;border-radius:100px}
   .sync-pill:active{background:var(--line-soft)}
+  .icon-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;
+    border-radius:100px;background:var(--surface);border:1px solid var(--line);color:var(--ink-soft);flex:0 0 auto}
+  .icon-btn:active{background:var(--line-soft)}
   .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:0 0 auto}
   .sync-dot.idle{background:var(--yes)}
   .sync-dot.syncing{background:var(--accent);animation:syncPulse 1s ease-in-out infinite}
@@ -353,6 +356,9 @@
       <h2>Avaliações</h2>
       <div class="list-head-right">
         <span class="count-pill" id="countPill"></span>
+        <button class="icon-btn" onclick="exportAll()" title="Exportar todos os registos (CSV)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 19h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <button class="sync-pill" id="syncPill" onclick="changeEquipa()" title="Código de equipa e estado de sincronização">
           <span class="sync-dot unconfigured" id="syncDot"></span>
           <span id="syncLabel">sync desligado</span>
