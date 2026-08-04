@@ -1050,7 +1050,9 @@ function toCSV(rows){
 }
 function download(name,text,type){
   try{
-    const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);
+    // BOM UTF-8: sem isto o Excel abre acentos trocados (ver toCSV/exportOne/exportAll).
+    const withBom = /csv/i.test(type) ? "\uFEFF"+text : text;
+    const blob=new Blob([withBom],{type});const url=URL.createObjectURL(blob);
     const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);
     a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
     toast("Ficheiro exportado");
