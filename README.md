@@ -1,218 +1,141 @@
-# 📍 Levantamento de Acessibilidade Pedonal - GitHub Pages
+# Selo de Acessibilidade — PWA
 
-Aplicação web para levantamento de dados de acessibilidade pedonal com GPS, fotografias e mapa interativo.
+App para avaliar a acessibilidade de comércio, serviços e restauração (âmbito do DL 163/2006),
+com fotografia do estabelecimento, regra de selo com critérios eliminatórios, e exportação CSV.
 
-**Status**: ✅ Pronto para publicar online  
-**Autor**: Câmara Municipal de Lisboa - PAPL  
-**Versão**: 2.0
+É uma **PWA instalável e offline**, com **sincronização entre dispositivos** via Supabase.
 
----
+## Conteúdo
 
-## 🚀 Como Colocar Online em 5 Passos
+```
+index.html              A app (HTML/CSS/JS, tudo num ficheiro)
+sync.js                 Sincronização com Supabase (pull/push/fila offline)
+schema.sql               Esquema da base de dados + Storage (executar no Supabase)
+manifest.webmanifest     Manifesto da PWA (nome, ícones, cores)
+sw.js                    Service worker (offline)
+vendor/supabase.js       Cliente Supabase JS, vendorizado para funcionar offline
+icons/                   Ícones 180/192/512 + maskable
+README.md                Este ficheiro
+```
 
-### **Passo 1: Criar Conta no GitHub** (se não tiver)
+## Estado atual
 
-1. Aceda a [github.com](https://github.com)
-2. Clique em **"Sign up"** (canto superior direito)
-3. Preencha:
-   - Email (pode usar email da CML)
-   - Password forte
-   - Username (ex: `papl-cml` ou `acessibilidade-lisboa`)
-4. Confirme no email
+- **Instalável**: manifesto + ícones + meta tags de ecrã inteiro.
+- **Offline garantido**: o `sw.js` guarda a app (incluindo o cliente Supabase) em cache;
+  depois da 1ª abertura funciona sem rede. A UI nunca espera pela rede — os dados ficam
+  primeiro em `localStorage` e sincronizam em segundo plano.
+- **Sincronização entre dispositivos**: avaliações e fotografias partilhadas por
+  "código de equipa", com fila offline e resolução de conflitos por *last-write-wins*.
 
----
+## Como publicar (necessário para PWA e service worker)
 
-### **Passo 2: Criar Novo Repositório**
+O service worker só funciona sobre **HTTPS** (ou `localhost`) — não a partir de `file://`.
+Publica a pasta inteira num alojamento estático gratuito. Qualquer um destes serve:
 
-1. Depois de logged in, clique no ➕ (canto superior direito) → **"New repository"**
-2. Preencha:
-   - **Repository name**: `acessibilidade-pedonal` (ou nome à sua escolha)
-   - **Description**: "Levantamento de acessibilidade pedonal - CML"
-   - **Public** (marque a opção)
-   - ✅ Marque **"Add a README file"**
-3. Clique em **"Create repository"**
+- **Cloudflare Pages** ou **Netlify**: liga a um repositório Git, ou arrasta a pasta. Sem build.
+- **GitHub Pages**: coloca os ficheiros num repositório e ativa Pages.
 
----
+Depois de publicada, abre o endereço no telemóvel e usa **Adicionar ao ecrã principal**
+(iPhone/Safari) ou **Instalar aplicação** (Android/Chrome).
 
-### **Passo 3: Upload dos Ficheiros**
+### Testar localmente
 
-1. Na página do repositório, clique em **"Add file"** → **"Upload files"**
-2. Arraste ou selecione:
-   - **index.html** (ficheiro principal da aplicação)
-3. Escreva no campo "Commit message": `Initial commit - App de acessibilidade pedonal`
-4. Clique em **"Commit changes"**
+```bash
+# a partir da pasta do projeto
+python3 -m http.server 8080
+# abre http://localhost:8080  (o service worker funciona em localhost)
+```
 
-> **Nota importante**: O ficheiro **tem de chamar-se `index.html`** para GitHub Pages funcionar automaticamente.
+### Atualizações
 
----
-
-### **Passo 4: Ativar GitHub Pages**
-
-1. Na página do repositório, vá a **Settings** (aba junto a "Code")
-2. Na barra lateral esquerda, clique em **"Pages"** (secção "Code and automation")
-3. Em **"Source"**, mude para:
-   - **Deploy from a branch**
-   - **Branch**: `main`
-   - **Folder**: `/ (root)`
-4. Clique em **"Save"**
-
-> GitHub vai processar alguns segundos. A página vai recarregar com uma mensagem verde:
-> ✅ "Your site is live at `https://seuusername.github.io/acessibilidade-pedonal`"
+Depois de mudares o `index.html`, `sync.js` ou os ícones, incrementa a versão do cache no
+`sw.js` (`acessibilidade-v1` → `acessibilidade-v2`). Os dispositivos instalados atualizam
+sozinhos.
 
 ---
 
-### **Passo 5: Partilhar o Link**
+## Configurar a sincronização com Supabase
 
-O seu link está pronto! 🎉
+1. **Criar o projeto** em [supabase.com](https://supabase.com) (tem plano gratuito).
+2. **Base de dados**: no SQL Editor do projeto, corre o conteúdo de `schema.sql`. Isto cria
+   a tabela `avaliacoes`, as políticas de acesso (RLS) e o bucket de Storage `fotos` para as
+   fotografias.
+3. **Chaves**: em *Project Settings → API*, copia o **Project URL** e a **anon public key** e
+   preenche o objeto `CONFIG` no topo de `sync.js`:
 
-Exemplo: `https://seuusername.github.io/acessibilidade-pedonal`
+   ```js
+   const CONFIG = {
+     url: "https://xxxxxxxxxxxx.supabase.co",
+     anonKey: "eyJhbGciOi...",
+     table: "avaliacoes",
+     bucket: "fotos",
+   };
+   ```
+
+   A anon key é pública por design — a segurança fica a cargo das políticas RLS em
+   `schema.sql`, não da chave estar "escondida".
+4. **Publicar** — depois de preencher as chaves, publica a app (ver secção acima). Sem
+   chaves configuradas, a app continua a funcionar normalmente em modo local/offline; a
+   sincronização fica apenas desligada (indicado no botão de estado, ver abaixo).
+
+### Como funciona
+
+- **Código de equipa**: toca no indicador junto ao contador de avaliações (canto superior
+  da lista) para definir/mudar o código de equipa partilhado por todos os dispositivos que
+  devem ver os mesmos registos. Sem código definido, usa-se `default`.
+- **Pull**: ao arrancar e sempre que a ligação volta (evento `online`), a app vai buscar as
+  linhas alteradas desde o último sync dessa equipa e faz merge por `id`, com regra
+  *last-write-wins* pelo campo `atualizado`. Registos eliminados noutro dispositivo
+  (tombstone `eliminado=true`) são removidos localmente.
+- **Push**: `Store.save()` grava sempre primeiro em local (a UI nunca espera pela rede) e só
+  depois envia (`upsert`) para o Supabase. Sem rede, o `id` fica numa fila em `localStorage`
+  e é reenviado automaticamente quando a ligação volta.
+- **Fotografias**: ao guardar uma avaliação com foto nova, a imagem (já redimensionada,
+  canvas → JPEG 0,7, máx. 1024px) é enviada para o bucket `fotos` do Supabase Storage em
+  segundo plano; o registo passa a ter `foto_url` e essa é a única versão da foto enviada
+  para a base de dados — nunca em base64 dentro das linhas.
+- **Estado de sincronização**: o botão junto ao contador mostra `sincronizado`,
+  `a sincronizar…`, `offline`, `erro de sync` ou `sync desligado` (sem chaves configuradas).
 
 ---
 
-## 🔗 Usar a Aplicação
+## Usar a Aplicação
 
-### **No Smartphone**
+### No Smartphone
 
 1. Abre o browser (Chrome, Safari, etc.)
-2. Cola o link: `https://seuusername.github.io/acessibilidade-pedonal`
-3. Pronto! Funciona offline (dados guardados no telemóvel)
+2. Cola o link da app publicada
+3. Instala com **Adicionar ao ecrã principal** / **Instalar aplicação**
+4. Funciona offline (dados guardados no telemóvel) e sincroniza quando há rede
 
-### **No Computador**
+### No Computador
 
 1. Qualquer browser funciona
-2. Partilha o link com a equipa
-3. Cada pessoa tem os seus próprios registos locais
+2. Usa o mesmo código de equipa para ver os registos partilhados
 
 ---
 
-## 💾 Dados & Exportação
+## Dados & Exportação
 
-### **Armazenamento**
-- ✅ Dados guardados **localmente no dispositivo** (localStorage)
-- ✅ Funciona **offline** (sem internet)
-- ✅ Cada dispositivo tem registos separados
-
-### **Exportação**
-
-Na aba **"Dados"**:
-- **📊 CSV**: Para Excel/análise
-- **📄 JSON**: Para importar noutros sistemas
+- Cada avaliação tem `id` único, gerado no cliente, e um campo `atualizado` (timestamp),
+  usados como ponto único de integração com a sincronização.
+- **Exportar CSV**: botão "Exportar" no formulário de uma avaliação (um registo), ou
+  duplo-toque no título "Avaliações" na lista para exportar tudo.
 
 ---
 
-## 🎯 Funcionalidades
+## Critério de pronto
 
-### **Novo Registo** (Fase 1 → 2 → 3)
+- Criar uma avaliação num dispositivo e vê-la aparecer noutro após o sync.
+- Editar offline e confirmar que reconcilia ao voltar a ligar (sem perder dados).
+- Fotografias a carregar a partir do Storage, não embebidas nas linhas.
+- App continua a instalar e a abrir offline.
 
-**Fase 1 - Categoria**
-- 8 bolas redondas com categorias
-- Clica para selecionar
+## Notas
 
-**Fase 2 - Tipo de Situação**
-- ✅ Bom Exemplo (verde)
-- ⚠️ A Resolver (amarelo)
-- 🚨 Perigo Urgente (vermelho)
-
-**Fase 3 - Confirmação**
-- Resumo das opções
-- GPS automático
-- Captura de foto (câmara ou galeria)
-- Guardar registo
-
-### **Mapa**
-- 🗺️ Visualização de todos os registos
-- 📍 Marcadores coloridos por tipo
-- 🔍 Legenda com contagem
-
-### **Dados**
-- 📊 Estatísticas resumidas
-- 📋 Lista completa de registos
-- 📥 Exportação em CSV/JSON
-
----
-
-## 🛠️ Personalização
-
-### **Alterar Título / Logo**
-
-Edite o `index.html` na linha:
-```html
-<h1>📍 Acessibilidade Pedonal</h1>
-```
-
-### **Alterar Categorias**
-
-No `index.html`, localize `CATEGORIAS` (por volta da linha 600):
-```javascript
-const CATEGORIAS = {
-    'pavimento': { nome: 'Problema de Pavimento', emoji: '🕳️' },
-    'desnivel': { nome: 'Desnível / Degrau', emoji: '📏' },
-    // ... adicione mais
-};
-```
-
-### **Alterar Cores**
-
-As cores principais estão no topo do `<style>`:
-- Azul principal: `#2c5aa0` → mude para cor municipal
-- Verde: `#27ae60`
-- Amarelo: `#f39c12`
-- Vermelho: `#e74c3c`
-
----
-
-## 📱 Compatibilidade
-
-✅ **Smartphones** (Android, iOS)  
-✅ **Tablets**  
-✅ **Computadores** (Chrome, Firefox, Safari, Edge)  
-✅ **Offline-first** (funciona sem internet)  
-
----
-
-## 🔒 Segurança & Privacidade
-
-- ✅ **Sem servidor**: todos os dados ficam no dispositivo
-- ✅ **Sem conta**: não precisa registar-se
-- ✅ **Sem rastreamento**: nenhuma informação é enviada para a internet
-- ✅ **Aberto**: pode auditar o código (está em HTML público)
-
----
-
-## 🐛 Problemas Comuns
-
-### "GitHub Pages não aparece ativa"
-- Verifique em **Settings → Pages** se está configurado como indicado acima
-- Aguarde 1-2 minutos (GitHub processa)
-
-### "Ficheiro não abre no GitHub Pages"
-- Confirme que se chama `index.html` (exatamente)
-- Verifique se foi feito o upload para o branch `main`
-
-### "GPS não funciona"
-- Permita localização no browser
-- Aguarde alguns segundos (requer sinal de satélite)
-
-### "Foto não aparece"
-- Confirme permissões de câmara no telemóvel
-- Tente novamente
-
----
-
-## 📞 Suporte
-
-Para questões técnicas, consulte:
-- [Documentação GitHub Pages](https://docs.github.com/en/pages)
-- [MDN Web Docs](https://developer.mozilla.org/)
-
----
-
-## 📄 Licença
-
-Desenvolvido para Câmara Municipal de Lisboa - PAPL  
-Domínio público - use e adapte livremente
-
----
-
-**Última atualização**: Julho 2026  
-**Versão**: 2.0 - Fluxo visual em 3 fases
+- Manter a app **local-first**: a UI nunca deve bloquear à espera da rede.
+- A política de acesso em `schema.sql` (`acesso por equipa`) é intencionalmente simples —
+  qualquer cliente com a anon key lê/escreve qualquer linha, e o "código de equipa" é apenas
+  um filtro lógico, não uma barreira de segurança. Para restringir por utilizador, trocar por
+  Supabase Auth (magic link) e políticas RLS filtradas por utilizador — ver comentários em
+  `schema.sql`.

@@ -1,1148 +1,1087 @@
 <!DOCTYPE html>
-<html lang="pt-PT">
+<html lang="pt">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Levantamento de Acessibilidade Pedonal</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            height: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-        }
-
-        .app-container {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background: #fff;
-        }
-
-        /* ========== HEADER ========== */
-        .header {
-            background: linear-gradient(135deg, #2c5aa0 0%, #1a3a5c 100%);
-            color: white;
-            padding: 1rem;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            z-index: 100;
-        }
-
-        .header h1 {
-            font-size: 1.3rem;
-            margin-bottom: 0.3rem;
-        }
-
-        .header-subtitle {
-            font-size: 0.9rem;
-            opacity: 0.9;
-        }
-
-        .gps-status-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            margin-top: 0.5rem;
-            opacity: 0.85;
-        }
-
-        .gps-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ff6b6b;
-            animation: pulse 1s infinite;
-        }
-
-        .gps-indicator.active {
-            background: #51cf66;
-            animation: none;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* ========== TABS ========== */
-        .tabs {
-            display: flex;
-            background: white;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .tab {
-            flex: 1;
-            padding: 1rem;
-            text-align: center;
-            cursor: pointer;
-            border: none;
-            background: none;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #999;
-            transition: all 0.3s;
-            position: relative;
-        }
-
-        .tab.active {
-            color: #2c5aa0;
-        }
-
-        .tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: #2c5aa0;
-        }
-
-        /* ========== CONTENT AREAS ========== */
-        .content {
-            flex: 1;
-            overflow-y: auto;
-            display: none;
-            padding: 0;
-        }
-
-        .content.active {
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* ========== TAB: NOVO REGISTO ========== */
-        .novo-content {
-            flex-direction: column;
-        }
-
-        .phase-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 1.5rem;
-            overflow-y: auto;
-        }
-
-        .phase-title {
-            text-align: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .phase-title h2 {
-            font-size: 1.2rem;
-            color: #2c5aa0;
-            margin-bottom: 0.3rem;
-        }
-
-        .phase-title p {
-            font-size: 0.9rem;
-            color: #999;
-        }
-
-        /* ========== CAROUSEL DE BOLAS ========== */
-        .carousel-container {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-            gap: 1rem;
-            padding: 1rem 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .carousel-container::-webkit-scrollbar {
-            height: 6px;
-        }
-
-        .carousel-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 10px;
-        }
-
-        .carousel-container::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 10px;
-        }
-
-        .carousel-ball {
-            min-width: 120px;
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 3px solid #ddd;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            background: white;
-            font-size: 1rem;
-            font-weight: 600;
-            text-align: center;
-            padding: 1rem;
-            color: #333;
-        }
-
-        .carousel-ball:hover {
-            border-color: #2c5aa0;
-            box-shadow: 0 4px 12px rgba(44, 90, 160, 0.2);
-        }
-
-        .carousel-ball.selected {
-            background: #2c5aa0;
-            color: white;
-            border-color: #2c5aa0;
-            box-shadow: 0 4px 16px rgba(44, 90, 160, 0.4);
-        }
-
-        .carousel-ball.tipo-bom {
-            border-color: #27ae60;
-        }
-
-        .carousel-ball.tipo-bom.selected {
-            background: #27ae60;
-            border-color: #27ae60;
-        }
-
-        .carousel-ball.tipo-resolver {
-            border-color: #f39c12;
-        }
-
-        .carousel-ball.tipo-resolver.selected {
-            background: #f39c12;
-            border-color: #f39c12;
-        }
-
-        .carousel-ball.tipo-perigo {
-            border-color: #e74c3c;
-        }
-
-        .carousel-ball.tipo-perigo.selected {
-            background: #e74c3c;
-            border-color: #e74c3c;
-        }
-
-        .ball-emoji {
-            font-size: 2.5rem;
-            margin-bottom: 0.3rem;
-        }
-
-        .ball-label {
-            font-size: 0.75rem;
-            line-height: 1.2;
-        }
-
-        /* ========== BOTÕES ========== */
-        .button-group {
-            display: flex;
-            gap: 1rem;
-            padding: 1rem;
-            background: white;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .button-group.single {
-            justify-content: center;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 1rem;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .btn-primary {
-            background: #2c5aa0;
-            color: white;
-        }
-
-        .btn-primary:active {
-            background: #1a3a5c;
-            transform: scale(0.98);
-        }
-
-        .btn-primary:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-
-        .btn-secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-secondary:active {
-            background: #e0e0e0;
-        }
-
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-danger:active {
-            background: #c0392b;
-        }
-
-        /* ========== CONFIRMAÇÃO & FOTO ========== */
-        .confirmation-area {
-            text-align: center;
-            padding: 1.5rem;
-            background: #f9f9f9;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-        }
-
-        .confirmation-area h3 {
-            color: #2c5aa0;
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-
-        .confirmation-text {
-            font-size: 0.95rem;
-            color: #666;
-            margin-bottom: 1rem;
-        }
-
-        .selected-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            padding: 1rem;
-            background: white;
-            border-radius: 6px;
-            border-left: 4px solid #2c5aa0;
-        }
-
-        .info-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .info-label {
-            font-weight: 600;
-            color: #333;
-        }
-
-        .info-value {
-            color: #666;
-        }
-
-        .photo-display {
-            width: 100%;
-            max-width: 250px;
-            height: 200px;
-            background: #f0f0f0;
-            border: 2px dashed #ddd;
-            border-radius: 8px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 1rem auto;
-            overflow: hidden;
-            cursor: pointer;
-        }
-
-        .photo-display.empty {
-            color: #999;
-            font-size: 3rem;
-        }
-
-        .photo-display img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* ========== MAP TAB ========== */
-        #map {
-            width: 100%;
-            flex: 1;
-        }
-
-        .map-controls {
-            position: absolute;
-            bottom: 20px;
-            left: 10px;
-            right: 10px;
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            z-index: 10;
-            max-width: 300px;
-        }
-
-        .map-controls h4 {
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            color: #333;
-        }
-
-        .map-legend {
-            font-size: 0.8rem;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin: 0.3rem 0;
-        }
-
-        .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-        }
-
-        /* ========== DADOS TAB ========== */
-        .dados-content {
-            padding: 1.5rem;
-        }
-
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .stat-card {
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .stat-card .number {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #2c5aa0;
-        }
-
-        .stat-card .label {
-            font-size: 0.8rem;
-            color: #666;
-            margin-top: 0.3rem;
-        }
-
-        .data-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .data-item {
-            background: white;
-            padding: 1rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border-left: 4px solid #2c5aa0;
-        }
-
-        .data-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: start;
-            margin-bottom: 0.5rem;
-        }
-
-        .data-item-category {
-            font-weight: 600;
-            font-size: 0.95rem;
-        }
-
-        .data-item-date {
-            font-size: 0.75rem;
-            color: #999;
-        }
-
-        .data-item-photo {
-            width: 100%;
-            max-width: 120px;
-            border-radius: 6px;
-            margin-top: 0.5rem;
-        }
-
-        .export-buttons {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 1rem;
-        }
-
-        .export-buttons button {
-            flex: 1;
-            padding: 0.8rem;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: #999;
-        }
-
-        /* ========== MODAL ========== */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            text-align: center;
-            max-width: 300px;
-        }
-
-        .modal-content h3 {
-            color: #2c5aa0;
-            margin-bottom: 1rem;
-            font-size: 1.2rem;
-        }
-
-        .modal-content .loading {
-            font-size: 2rem;
-            margin-bottom: 1rem;
-        }
-
-        @media (max-width: 480px) {
-            .header h1 {
-                font-size: 1.1rem;
-            }
-
-            .carousel-ball {
-                min-width: 100px;
-                width: 100px;
-                height: 100px;
-            }
-
-            .ball-emoji {
-                font-size: 2rem;
-            }
-
-            .stats {
-                grid-template-columns: 1fr;
-            }
-
-            .phase-container {
-                padding: 1rem;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14213D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Acessibilidade">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Selo de Acessibilidade — Avaliação</title>
+<script src="vendor/supabase.js"></script>
+<script src="sync.js"></script>
+<style>
+  :root{
+    --bg:#EEF2F7; --surface:#FFFFFF; --ink:#14213D; --ink-soft:#43506A;
+    --muted:#7A8AA0; --line:#DCE3EC; --line-soft:#EAF0F6;
+    --accent:#1E5FD6; --accent-soft:#E8F0FE; --accent-ink:#123f95;
+    --yes:#157F45; --yes-soft:#E4F3EA;
+    --no:#C62828; --no-soft:#FBE9E9;
+    --na:#5B6B82; --na-soft:#ECF0F5;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 1px 2px rgba(20,33,61,.06),0 6px 20px rgba(20,33,61,.06);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:var(--font); background:var(--bg); color:var(--ink);
+    line-height:1.45; -webkit-font-smoothing:antialiased;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font-family:inherit;font-size:16px}
+  :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:8px}
+
+  /* ---------- App shell ---------- */
+  .app{max-width:620px;margin:0 auto;min-height:100vh}
+  header.top{
+    position:sticky;top:0;z-index:40;background:var(--ink);color:#fff;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    display:flex;align-items:center;gap:12px;
+  }
+  header.top .mark{
+    width:34px;height:34px;border-radius:9px;background:#fff;flex:0 0 auto;
+    display:grid;place-items:center;color:var(--ink);
+  }
+  header.top h1{font-size:16px;margin:0;font-weight:700;letter-spacing:-.2px;line-height:1.1}
+  header.top .sub{font-size:11.5px;color:#B9C4DA;font-weight:500;letter-spacing:.3px;text-transform:uppercase}
+  header.top .back{
+    margin-left:auto;background:rgba(255,255,255,.13);color:#fff;
+    padding:9px 14px;border-radius:10px;font-weight:600;font-size:14px;
+  }
+  header.top .back:active{background:rgba(255,255,255,.25)}
+
+  .wrap{padding:16px 16px 90px}
+
+  /* ---------- List view ---------- */
+  .list-head{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 14px;gap:10px}
+  .list-head h2{font-size:20px;margin:0;letter-spacing:-.4px}
+  .list-head-right{display:flex;align-items:center;gap:9px;flex:0 0 auto}
+  .count-pill{font-size:12.5px;color:var(--muted);font-weight:600}
+  .sync-pill{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+    color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);
+    padding:6px 10px;border-radius:100px}
+  .sync-pill:active{background:var(--line-soft)}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:0 0 auto}
+  .sync-dot.idle{background:var(--yes)}
+  .sync-dot.syncing{background:var(--accent);animation:syncPulse 1s ease-in-out infinite}
+  .sync-dot.error{background:var(--no)}
+  .sync-dot.offline{background:var(--na)}
+  .sync-dot.unconfigured{background:var(--line)}
+  @keyframes syncPulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .empty{
+    text-align:center;padding:54px 24px;color:var(--muted);
+    background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);
+  }
+  .empty .ico{font-size:34px;margin-bottom:10px}
+  .empty p{margin:0 0 4px;font-weight:600;color:var(--ink-soft)}
+  .empty span{font-size:13.5px}
+
+  .card-list{display:flex;flex-direction:column;gap:11px}
+  .estab{
+    background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);
+    border:1px solid var(--line-soft);padding:13px 14px;width:100%;text-align:left;
+    display:flex;align-items:center;gap:13px;
+  }
+  .estab-body{flex:1;min-width:0}
+  .thumb{
+    flex:0 0 auto;width:52px;height:52px;border-radius:12px;display:block;
+    background-size:cover;background-position:center;background-color:var(--line-soft);
+  }
+  .thumb.empty{display:grid;place-items:center;color:#AEBACD}
+  .estab:active{transform:scale(.995)}
+  .estab .row1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .estab .nm{font-weight:700;font-size:16px;letter-spacing:-.2px;flex:1;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .estab .meta{font-size:12.5px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .estab .meta .dot{width:3px;height:3px;border-radius:50%;background:var(--muted);display:inline-block}
+  .badge{
+    font-size:11px;font-weight:700;padding:4px 9px;border-radius:100px;
+    letter-spacing:.2px;flex:0 0 auto;white-space:nowrap;
+  }
+  .badge.ok{background:var(--yes-soft);color:var(--yes)}
+  .badge.no{background:var(--no-soft);color:var(--no)}
+  .badge.inc{background:var(--na-soft);color:var(--na)}
+  .tag{font-size:11px;font-weight:600;background:var(--accent-soft);color:var(--accent-ink);
+    padding:3px 8px;border-radius:6px}
+  .tag.draft{background:var(--na-soft);color:var(--na)}
+
+  /* Sumário em destaque */
+  .summary{background:var(--ink);color:#fff;border-radius:var(--radius);padding:16px 18px;
+    margin-bottom:13px;box-shadow:var(--shadow)}
+  .s-big{display:flex;align-items:baseline;gap:9px}
+  .s-num{font-size:40px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+  .s-lbl{font-size:13px;color:#AFBBD2;font-weight:600}
+  .s-stats{display:flex;gap:8px;margin-top:15px}
+  .s-stat{flex:1;background:rgba(255,255,255,.09);border-radius:12px;padding:11px 6px;text-align:center}
+  .s-stat .n{font-size:21px;font-weight:800;line-height:1}
+  .s-stat .t{font-size:10.5px;color:#AFBBD2;font-weight:600;margin-top:4px;letter-spacing:.1px}
+  .s-stat.ok .n{color:#69DDA0}
+  .s-stat.no .n{color:#FF9E9E}
+  .s-stat.inc .n{color:#CBD6E8}
+  .s-conf{display:flex;justify-content:space-between;align-items:center;margin-top:13px;
+    padding-top:12px;border-top:1px solid rgba(255,255,255,.12);font-size:13px;color:#AFBBD2;font-weight:600}
+  .s-conf b{color:#fff;font-size:17px;font-weight:800}
+
+  /* Separadores */
+  .tabbar{display:flex;gap:5px;background:var(--line-soft);padding:4px;border-radius:12px;margin-bottom:14px}
+  .tab{flex:1;padding:9px 6px;border-radius:9px;font-weight:700;font-size:13.5px;color:var(--muted)}
+  .tab[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(20,33,61,.12)}
+  .tab:active{transform:scale(.97)}
+
+  /* ---------- Buttons ---------- */
+  .fab{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    padding:12px 16px calc(env(safe-area-inset-bottom) + 12px);
+    background:linear-gradient(to top,var(--bg) 62%,rgba(238,242,247,0));
+    max-width:620px;margin:0 auto;
+  }
+  .btn{
+    width:100%;padding:15px;border-radius:13px;font-weight:700;font-size:16px;
+    display:flex;align-items:center;justify-content:center;gap:9px;letter-spacing:-.1px;
+  }
+  .btn-primary{background:var(--accent);color:#fff;box-shadow:0 6px 16px rgba(30,95,214,.28)}
+  .btn-primary:active{background:var(--accent-ink)}
+  .btn-ghost{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+  .btn-ghost:active{background:var(--line-soft)}
+  .btn-danger{background:var(--no-soft);color:var(--no);border:1.5px solid #F3C9C9}
+  .btn-sm{padding:11px 14px;font-size:14px;border-radius:11px;width:auto}
+  .btn-row{display:flex;gap:10px;margin-top:12px}
+  .btn-row .btn{flex:1}
+
+  /* ---------- Form ---------- */
+  section.block{
+    background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);
+    border:1px solid var(--line-soft);margin-bottom:14px;overflow:hidden;
+  }
+  .block-title{
+    display:flex;align-items:center;gap:9px;padding:14px 16px 12px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .block-title .eyebrow{font-size:11px;font-weight:700;color:var(--accent);
+    text-transform:uppercase;letter-spacing:1px}
+  .block-title h3{font-size:16px;margin:2px 0 0;letter-spacing:-.3px}
+  .block-body{padding:15px 16px}
+
+  .field{margin-bottom:14px}
+  .field:last-child{margin-bottom:0}
+  .field label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:6px}
+  .field input[type=text],.field textarea{
+    width:100%;padding:12px 13px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    background:#fff;color:var(--ink);
+  }
+  .field textarea{min-height:64px;resize:vertical;line-height:1.4}
+  .field input::placeholder,.field textarea::placeholder{color:#A9B4C6}
+
+  .geo-row{display:flex;gap:9px;align-items:stretch}
+  .geo-row input{flex:1;min-width:0}
+  .geo-btn{
+    flex:0 0 auto;background:var(--accent-soft);color:var(--accent-ink);
+    padding:0 14px;border-radius:var(--radius-sm);font-weight:700;font-size:13.5px;
+    display:flex;align-items:center;gap:6px;border:1.5px solid #CBDCF7;
+  }
+  .geo-btn:active{background:#D5E4FB}
+  .geo-btn.loading{opacity:.6;pointer-events:none}
+
+  /* segmented 2/3-way */
+  .seg{display:flex;gap:8px}
+  .seg.three .opt{flex:1}
+  .seg.acts{flex-wrap:wrap}
+  .seg.acts .opt{flex:1;min-width:96px}
+  .opt{
+    padding:13px 8px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    background:#fff;font-weight:600;font-size:14.5px;color:var(--ink-soft);text-align:center;
+    min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px;
+    transition:transform .04s;
+  }
+  .opt:active{transform:scale(.97)}
+  .opt[aria-pressed="true"]{border-width:2px}
+  .opt.sim[aria-pressed="true"]{background:var(--yes-soft);border-color:var(--yes);color:var(--yes)}
+  .opt.nao[aria-pressed="true"]{background:var(--no-soft);border-color:var(--no);color:var(--no)}
+  .opt.na[aria-pressed="true"]{background:var(--na-soft);border-color:var(--na);color:var(--na)}
+  .opt.act[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+
+  /* ---------- Criteria ---------- */
+  .crit{border-bottom:1px solid var(--line-soft);padding:15px 16px}
+  .crit:last-child{border-bottom:none}
+  .crit-head{display:flex;align-items:flex-start;gap:10px}
+  .crit-n{
+    flex:0 0 auto;width:24px;height:24px;border-radius:7px;background:var(--line-soft);
+    color:var(--ink-soft);font-size:12px;font-weight:700;display:grid;place-items:center;margin-top:1px;
+  }
+  .crit.answered .crit-n{background:var(--accent);color:#fff}
+  .crit-name{flex:1;font-weight:700;font-size:15px;letter-spacing:-.2px;padding-top:2px}
+  .info-toggle{
+    flex:0 0 auto;background:none;color:var(--accent);font-size:12.5px;font-weight:700;
+    padding:4px 6px;display:flex;align-items:center;gap:4px;
+  }
+  .info-box{
+    margin-top:10px;background:var(--accent-soft);border-radius:10px;padding:11px 13px;
+    font-size:13px;color:#2b4c86;line-height:1.5;display:none;
+  }
+  .info-box.open{display:block}
+  .info-box .lbl{font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--accent);display:block;margin-bottom:3px}
+  .info-box em{font-style:normal;color:#5a6f96;font-size:11.5px}
+  .crit .seg{margin-top:11px}
+  .crit textarea{
+    width:100%;margin-top:9px;padding:10px 12px;border:1.5px solid var(--line);
+    border-radius:10px;min-height:0;height:42px;resize:vertical;font-size:14px;line-height:1.4;
+  }
+  .crit textarea:focus{height:64px}
+
+  /* ---------- Photo ---------- */
+  .photo-drop{
+    width:100%;border:2px dashed var(--line);border-radius:14px;background:var(--line-soft);
+    padding:26px 16px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--accent-ink);
+  }
+  .photo-drop:active{background:#E3EAF3}
+  .photo-drop .pd-ic{
+    width:58px;height:58px;border-radius:15px;background:#fff;display:grid;place-items:center;
+    color:var(--accent);margin-bottom:8px;box-shadow:var(--shadow);
+  }
+  .photo-drop .pd-title{font-weight:700;font-size:15px;color:var(--ink)}
+  .photo-drop .pd-sub{font-size:12.5px;color:var(--muted)}
+  .photo-preview{border-radius:14px;overflow:hidden;background:#0d1526;line-height:0}
+  .photo-preview img{display:block;width:100%;max-height:300px;object-fit:cover}
+  .photo-actions{display:flex;gap:8px;margin-top:10px}
+  .photo-act{
+    flex:1;padding:12px;border-radius:11px;background:var(--accent-soft);color:var(--accent-ink);
+    font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;
+    border:1.5px solid #CBDCF7;
+  }
+  .photo-act:active{background:#D5E4FB}
+  .photo-act.danger{background:var(--no-soft);color:var(--no);border-color:#F3C9C9;flex:0 0 auto;padding:12px 16px}
+
+  /* N/a automático */
+  .auto-note{
+    margin-top:9px;background:#FFF6E6;border:1px solid #F1DCA9;border-radius:9px;padding:8px 11px;
+    font-size:12px;color:#8A6A15;font-weight:600;display:flex;align-items:center;gap:6px;line-height:1.35;
+  }
+  .auto-note svg{flex:0 0 auto;color:#C8961A}
+
+  /* critério eliminatório + destaque ao bloquear */
+  .crit-flag{display:inline-block;margin-left:7px;font-size:9.5px;font-weight:800;letter-spacing:.5px;
+    text-transform:uppercase;color:var(--no);background:var(--no-soft);padding:2px 6px;border-radius:5px;
+    vertical-align:middle;line-height:1.4}
+  @keyframes flashCrit{0%,55%{background:#FFF7DD}100%{background:transparent}}
+  .crit.flash{animation:flashCrit 1.5s ease}
+  .btn-primary.locked{background:#93A1B8;box-shadow:none}
+
+  /* ---------- Live verdict ---------- */
+  .verdict{
+    position:sticky;top:60px;z-index:20;margin:-4px 0 14px;
+  }
+  .verdict-inner{
+    background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:13px 15px;
+  }
+  .verdict-top{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+  .v-icon{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+    font-size:20px;flex:0 0 auto}
+  .v-icon.ok{background:var(--yes-soft)}
+  .v-icon.no{background:var(--no-soft)}
+  .v-icon.inc{background:var(--na-soft)}
+  .v-txt{flex:1;min-width:0}
+  .v-txt .st{font-weight:800;font-size:16px;letter-spacing:-.3px;line-height:1.1}
+  .v-txt .st.ok{color:var(--yes)}
+  .v-txt .st.no{color:var(--no)}
+  .v-txt .st.inc{color:var(--na)}
+  .v-txt .dsc{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .v-pct{font-size:22px;font-weight:800;letter-spacing:-.5px;flex:0 0 auto}
+  .bar{display:flex;height:9px;border-radius:100px;overflow:hidden;background:var(--line-soft);gap:2px}
+  .bar span{display:block;transition:flex-grow .3s ease}
+  .bar .s-ok{background:var(--yes)}
+  .bar .s-no{background:var(--no)}
+  .bar .s-na{background:var(--na)}
+  .vlegend{display:flex;gap:14px;margin-top:9px;font-size:11.5px;color:var(--ink-soft);font-weight:600;flex-wrap:wrap}
+  .vlegend b{font-weight:800}
+  .vlegend .k{display:flex;align-items:center;gap:5px}
+  .vlegend .sw{width:9px;height:9px;border-radius:3px;display:inline-block}
+  .sw.ok{background:var(--yes)} .sw.no{background:var(--no)} .sw.na{background:var(--na)} .sw.pend{background:var(--line)}
+
+  /* ---------- Modal / toast ---------- */
+  .toast{
+    position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:#fff;padding:12px 18px;border-radius:12px;font-size:14px;font-weight:600;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);z-index:100;opacity:0;pointer-events:none;
+    transition:opacity .25s,transform .25s;max-width:88%;text-align:center;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .sheet-bg{position:fixed;inset:0;background:rgba(20,33,61,.5);z-index:90;opacity:0;
+    pointer-events:none;transition:opacity .2s}
+  .sheet-bg.show{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:91;background:var(--surface);
+    border-radius:20px 20px 0 0;padding:8px 18px calc(env(safe-area-inset-bottom) + 20px);
+    max-width:620px;margin:0 auto;transform:translateY(100%);transition:transform .25s;
+  }
+  .sheet.show{transform:translateY(0)}
+  .sheet .grab{width:38px;height:4px;border-radius:100px;background:var(--line);margin:8px auto 14px}
+  .sheet h3{margin:0 0 4px;font-size:18px;letter-spacing:-.3px}
+  .sheet p{margin:0 0 16px;color:var(--muted);font-size:13.5px}
+
+  .hint{font-size:12px;color:var(--muted);margin:14px 4px 0;text-align:center;line-height:1.5}
+  .required::after{content:" *";color:var(--no)}
+</style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- HEADER -->
-        <div class="header">
-            <h1>📍 Acessibilidade Pedonal</h1>
-            <div class="gps-status-header">
-                <div class="gps-indicator" id="gpsIndicator"></div>
-                <span id="gpsText">Localizando...</span>
-            </div>
-        </div>
-
-        <!-- TABS -->
-        <div class="tabs">
-            <button class="tab active" data-tab="novo">Novo Registo</button>
-            <button class="tab" data-tab="mapa">Mapa</button>
-            <button class="tab" data-tab="dados">Dados</button>
-        </div>
-
-        <!-- ========== TAB: NOVO REGISTO ========== -->
-        <div class="content active novo-content" id="novo">
-            <div class="phase-container">
-                <!-- FASE 1: CATEGORIA -->
-                <div id="phase1" class="phase-active">
-                    <div class="phase-title">
-                        <h2>Fase 1: Selecione a Categoria</h2>
-                        <p>Que tipo de problema observa?</p>
-                    </div>
-                    <div class="carousel-container" id="categoriesCarousel"></div>
-                </div>
-
-                <!-- FASE 2: TIPO -->
-                <div id="phase2" style="display:none;">
-                    <div class="phase-title">
-                        <h2 id="phase2Title">Fase 2: Qual é a Situação?</h2>
-                        <p id="phase2Subtitle">Categoria Selecionada</p>
-                    </div>
-                    <div class="carousel-container" id="typesCarousel"></div>
-                </div>
-
-                <!-- FASE 3: CONFIRMAÇÃO & FOTO -->
-                <div id="phase3" style="display:none;">
-                    <div class="phase-title">
-                        <h2>Fase 3: Confirmar e Capturar</h2>
-                        <p>Câmara Municipal de Lisboa</p>
-                    </div>
-
-                    <div class="confirmation-area">
-                        <h3>Registo Pronto</h3>
-                        <div class="selected-info">
-                            <div class="info-row">
-                                <span class="info-label">Categoria:</span>
-                                <span class="info-value" id="confirmCategory">-</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Tipo:</span>
-                                <span class="info-value" id="confirmType">-</span>
-                            </div>
-                            <div class="info-row">
-                                <span class="info-label">Localização:</span>
-                                <span class="info-value" id="confirmLocation">-</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="photo-display empty" id="photoDisplay" onclick="document.getElementById('photoInput').click();">
-                        📷
-                    </div>
-
-                    <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none;">
-                </div>
-            </div>
-
-            <!-- BUTTONS -->
-            <div class="button-group">
-                <button class="btn btn-secondary" id="backBtn" onclick="goBack()" style="display:none;">← Voltar</button>
-                <button class="btn btn-primary" id="nextBtn" onclick="nextPhase()" disabled>Seguinte →</button>
-            </div>
-        </div>
-
-        <!-- ========== TAB: MAPA ========== -->
-        <div class="content" id="mapa">
-            <div id="map"></div>
-            <div class="map-controls">
-                <h4>Resumo de Registos</h4>
-                <div class="map-legend" id="mapLegend"></div>
-            </div>
-        </div>
-
-        <!-- ========== TAB: DADOS ========== -->
-        <div class="content dados-content" id="dados">
-            <h2 style="color:#2c5aa0;margin-bottom:1rem;">Análise de Dados</h2>
-            <div class="stats" id="stats"></div>
-
-            <div class="export-buttons">
-                <button class="btn btn-secondary" onclick="exportCSV()">📊 CSV</button>
-                <button class="btn btn-secondary" onclick="exportJSON()">📄 JSON</button>
-            </div>
-
-            <h3 style="color:#2c5aa0;margin-top:2rem;margin-bottom:1rem;">Todos os Registos</h3>
-            <div class="data-list" id="dataList"></div>
-        </div>
+<div class="app">
+  <header class="top">
+    <div class="mark" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="4" r="2" fill="#14213D"/>
+        <path d="M12 7c-2.2 1.1-4.5 1.6-6 1.7M12 7c2.2 1.1 4.5 1.6 6 1.7M12 7v6m0 0l-2.4 5M12 13l2.4 5"
+          stroke="#14213D" stroke-width="2" stroke-linecap="round"/>
+      </svg>
     </div>
-
-    <!-- MODAL -->
-    <div class="modal" id="modal">
-        <div class="modal-content">
-            <div class="loading">⏳</div>
-            <h3 id="modalTitle">A processar...</h3>
-            <p id="modalText"></p>
-        </div>
+    <div>
+      <h1 id="topTitle">Selo de Acessibilidade</h1>
+      <div class="sub" id="topSub">Comércio · Serviços · Restauração</div>
     </div>
+    <button class="back" id="backBtn" style="display:none" onclick="goList()">Fechar</button>
+  </header>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-    <script>
-        // ===== ESTADO =====
-        let currentLocation = null;
-        let currentPhase = 1;
-        let selectedCategory = null;
-        let selectedType = null;
-        let currentPhoto = null;
-        let map = null;
-        let registos = [];
+  <!-- LIST VIEW -->
+  <div class="wrap" id="listView">
+    <div class="list-head">
+      <h2>Avaliações</h2>
+      <div class="list-head-right">
+        <span class="count-pill" id="countPill"></span>
+        <button class="sync-pill" id="syncPill" onclick="changeEquipa()" title="Código de equipa e estado de sincronização">
+          <span class="sync-dot unconfigured" id="syncDot"></span>
+          <span id="syncLabel">sync desligado</span>
+        </button>
+      </div>
+    </div>
+    <div class="summary" id="summaryCard"></div>
+    <div class="tabbar" id="tabBar">
+      <button class="tab" data-f="todas" aria-pressed="true" onclick="setTab('todas')">Todas</button>
+      <button class="tab" data-f="curso" aria-pressed="false" onclick="setTab('curso')">Em curso</button>
+      <button class="tab" data-f="realizadas" aria-pressed="false" onclick="setTab('realizadas')">Realizadas</button>
+    </div>
+    <div id="listBody"></div>
+  </div>
 
-        const CATEGORIAS = {
-            'pavimento': { nome: 'Problema de Pavimento', emoji: '🕳️' },
-            'desnivel': { nome: 'Desnível / Degrau', emoji: '📏' },
-            'obstáculo': { nome: 'Obstáculo na Via', emoji: '🚧' },
-            'rampa': { nome: 'Rampa (falta/dimensão)', emoji: '📐' },
-            'passadeira': { nome: 'Passadeira Inacessível', emoji: '🛣️' },
-            'semáforo': { nome: 'Semáforo (sem som/visual)', emoji: '🚦' },
-            'estacionamento': { nome: 'Estacionamento Abusivo', emoji: '🚗' },
-            'vegetação': { nome: 'Vegetação (ramos baixos)', emoji: '🌿' },
-        };
+  <!-- FORM VIEW -->
+  <div class="wrap" id="formView" style="display:none">
 
-        const TIPOS = {
-            'bom': { nome: 'Bom Exemplo', emoji: '✅', classe: 'tipo-bom', cor: '#27ae60' },
-            'resolver': { nome: 'A Resolver', emoji: '⚠️', classe: 'tipo-resolver', cor: '#f39c12' },
-            'perigo': { nome: 'Perigo Urgente', emoji: '🚨', classe: 'tipo-perigo', cor: '#e74c3c' }
-        };
+    <div class="verdict" id="verdict"><div class="verdict-inner">
+      <div class="verdict-top">
+        <div class="v-icon inc" id="vIcon">◐</div>
+        <div class="v-txt">
+          <div class="st inc" id="vStatus">Avaliação incompleta</div>
+          <div class="dsc" id="vDesc">Responda aos critérios aplicáveis</div>
+        </div>
+        <div class="v-pct" id="vPct">—</div>
+      </div>
+      <div class="bar" id="vBar">
+        <span class="s-ok" style="flex-grow:0"></span>
+        <span class="s-no" style="flex-grow:0"></span>
+        <span class="s-na" style="flex-grow:0"></span>
+      </div>
+      <div class="vlegend">
+        <span class="k"><i class="sw ok"></i>Sim <b id="lgOk">0</b></span>
+        <span class="k"><i class="sw no"></i>Não <b id="lgNo">0</b></span>
+        <span class="k"><i class="sw na"></i>N/a <b id="lgNa">0</b></span>
+        <span class="k"><i class="sw pend"></i>Por responder <b id="lgPend">12</b></span>
+      </div>
+    </div></div>
 
-        // ===== INICIALIZAÇÃO =====
-        document.addEventListener('DOMContentLoaded', () => {
-            carregarRegistos();
-            inicializarAbas();
-            inicializarCarousel();
-            getLocation();
-            document.getElementById('photoInput').addEventListener('change', handlePhotoSelect);
-        });
+    <!-- Fotografia -->
+    <section class="block">
+      <div class="block-title">
+        <div><div class="eyebrow">Passo 1</div><h3>Fotografia do estabelecimento</h3></div>
+      </div>
+      <div class="block-body">
+        <div class="photo-area" id="photoArea"></div>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(this)" style="display:none">
+      </div>
+    </section>
 
-        // ===== GPS =====
-        function getLocation() {
-            if (!navigator.geolocation) {
-                updateGPSStatus(false, 'GPS não disponível');
-                return;
-            }
+    <!-- Caracterização -->
+    <section class="block">
+      <div class="block-title">
+        <div><div class="eyebrow">Passo 2</div><h3>Caracterização</h3></div>
+      </div>
+      <div class="block-body">
+        <div class="field">
+          <label class="required" for="fNome">Nome do estabelecimento</label>
+          <input type="text" id="fNome" placeholder="Ex.: Padaria Central">
+        </div>
+        <div class="field">
+          <label for="fPolicia">Número de polícia</label>
+          <input type="text" id="fPolicia" placeholder="Ex.: Rua Augusta, 45 A">
+        </div>
+        <div class="field">
+          <label>Atividade</label>
+          <div class="seg acts" id="fAtividade" role="group">
+            <button class="opt act" data-v="Comércio" onclick="pickAct(this)">Comércio</button>
+            <button class="opt act" data-v="Restauração" onclick="pickAct(this)">Restauração</button>
+            <button class="opt act" data-v="Serviços" onclick="pickAct(this)">Serviços</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Dentro do âmbito do DL 163/2006</label>
+          <div class="seg three" id="fAmbito" role="group">
+            <button class="opt sim" data-v="Sim" onclick="pickSNA(this,'fAmbito')">Sim</button>
+            <button class="opt nao" data-v="Não" onclick="pickSNA(this,'fAmbito')">Não</button>
+            <button class="opt na" data-v="N/a" onclick="pickSNA(this,'fAmbito')">N/a</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="fCoord">Coordenadas (latitude, longitude)</label>
+          <div class="geo-row">
+            <input type="text" id="fCoord" placeholder="—" inputmode="decimal">
+            <button class="geo-btn" id="geoBtn" onclick="getLoc()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              GPS
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    currentLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude,
-                        accuracy: position.coords.accuracy
-                    };
-                    updateGPSStatus(true, `${currentLocation.lat.toFixed(4)}, ${currentLocation.lng.toFixed(4)}`);
-                    if (map) map.setView([currentLocation.lat, currentLocation.lng], 18);
-                },
-                (error) => {
-                    updateGPSStatus(false, 'Sem localização');
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        }
+    <!-- Critérios -->
+    <section class="block">
+      <div class="block-title">
+        <div><div class="eyebrow">Passo 3</div><h3>É acessível?</h3></div>
+      </div>
+      <div id="critList"></div>
+    </section>
 
-        function updateGPSStatus(isActive, text) {
-            const indicator = document.getElementById('gpsIndicator');
-            const statusText = document.getElementById('gpsText');
-            
-            if (isActive) {
-                indicator.classList.add('active');
-                statusText.textContent = '✓ GPS: ' + text;
-            } else {
-                indicator.classList.remove('active');
-                statusText.textContent = '✗ ' + text;
-            }
-        }
+    <button class="btn btn-ghost" onclick="saveEval()" style="margin-bottom:10px">Guardar</button>
+    <div class="btn-row">
+      <button class="btn btn-ghost btn-danger" id="delBtn" style="display:none" onclick="askDelete()">Eliminar</button>
+      <button class="btn btn-ghost" onclick="exportOne()">Exportar</button>
+    </div>
+    <p class="hint">Os dados ficam guardados neste dispositivo. O veredito é indicativo e não substitui uma vistoria técnica formal.</p>
+  </div>
 
-        // ===== ABAS =====
-        function inicializarAbas() {
-            document.querySelectorAll('.tab').forEach(tab => {
-                tab.addEventListener('click', () => {
-                    const tabName = tab.getAttribute('data-tab');
-                    
-                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
-                    
-                    tab.classList.add('active');
-                    document.getElementById(tabName).classList.add('active');
+  <!-- Floating action -->
+  <div class="fab" id="fabList">
+    <button class="btn btn-primary" onclick="newEval()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+      Nova avaliação
+    </button>
+  </div>
+  <div class="fab" id="fabForm" style="display:none">
+    <button class="btn btn-primary" id="finalizeBtn" onclick="finalizeEval()">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="fab-label">Finalizar avaliação</span>
+    </button>
+  </div>
+</div>
 
-                    if (tabName === 'mapa' && !map) {
-                        setTimeout(() => inicializarMapa(), 100);
-                    }
-                    if (tabName === 'dados') {
-                        atualizarDados();
-                    }
-                });
-            });
-        }
+<div class="toast" id="toast"></div>
+<div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="grab"></div>
+  <h3 id="sheetTitle">Confirmar</h3>
+  <p id="sheetMsg"></p>
+  <button class="btn btn-danger" id="sheetOk">Eliminar</button>
+  <button class="btn btn-ghost" style="margin-top:9px" onclick="closeSheet()">Cancelar</button>
+</div>
 
-        // ===== CAROUSEL =====
-        function inicializarCarousel() {
-            const carousel = document.getElementById('categoriesCarousel');
-            carousel.innerHTML = '';
-            
-            Object.entries(CATEGORIAS).forEach(([key, cat]) => {
-                const ball = document.createElement('div');
-                ball.className = 'carousel-ball';
-                ball.innerHTML = `
-                    <div class="ball-emoji">${cat.emoji}</div>
-                    <div class="ball-label">${cat.nome}</div>
-                `;
-                ball.onclick = () => selectCategory(key, ball);
-                carousel.appendChild(ball);
-            });
-        }
+<script>
+/* ================= Dados dos critérios (da grelha original) ================= */
+const CRITERIA = [
+  {k:"entrada",   n:"Entrada (sem ressalto)",            info:"Ressalto máximo admissível de 0,02 m (2 cm). Rampa suave sempre que exista desnível.", added:true},
+  {k:"pivotante", n:"Porta pivotante",                   info:"Fácil manuseio, sem esforço. Largura útil ≥ 0,77 m."},
+  {k:"automatica",n:"Porta automática",                  info:"Largura útil ≥ 0,77 m."},
+  {k:"circulacao",n:"Circulação > 0,80 m",               info:"Percursos e corredores com largura livre ≥ 0,80 m.", added:true},
+  {k:"objetos",   n:"Objetos projetados",                info:"Acima dos 0,70 m do chão, saliência máxima de 10 cm."},
+  {k:"alcance",   n:"Alcance dos produtos",              info:"Produtos ao alcance até uma altura de 1,40 m."},
+  {k:"provadores",n:"Provadores",                        info:"Apenas um precisa de ser acessível. Dimensão mínima 1,2 m × 1,2 m."},
+  {k:"mesas",     n:"Mesas",                             info:"Zona de refeição com mesa acessível: altura livre inferior ≥ 0,70 m e largura ≥ 0,80 m.", added:true},
+  {k:"sanitaria", n:"Instalação sanitária",             info:"Dimensão mínima 1,7 m × 1,6 m."},
+  {k:"ascensor",  n:"Ascensores",                        info:"Cabina 1,1 m × 1,4 m e porta 0,80 m. Rotação de 360º antes de entrar. Capacidade 300 kg."},
+  {k:"plataforma",n:"Plataforma elevatória",            info:"Cabina 1,0 m × 0,75 m e porta 0,80 m. Rotação de 360º antes de entrar. Capacidade 300 kg."},
+  {k:"balcao",    n:"Balcão de atendimento / pagamento", info:"Altura entre 0,75 m e 0,85 m, situado no percurso acessível."}
+];
 
-        function selectCategory(key, element) {
-            document.querySelectorAll('#categoriesCarousel .carousel-ball').forEach(b => b.classList.remove('selected'));
-            element.classList.add('selected');
-            selectedCategory = key;
-            document.getElementById('nextBtn').disabled = false;
-        }
+/* Critérios que só se aplicam a certas atividades → os restantes ficam N/a automático */
+const ACTIVITY_SCOPE = { provadores:["Comércio"], mesas:["Restauração"] };
+function applyActivityScope(force){
+  const act = current.atividade;
+  Object.keys(ACTIVITY_SCOPE).forEach(k=>{
+    const a = current.answers[k];
+    const applies = !act || ACTIVITY_SCOPE[k].includes(act); // sem atividade escolhida → não força N/a
+    if(!applies){
+      if(force || a.resp===null || a.auto){ a.resp="N/a"; a.auto=true; }
+    }else if(a.auto){
+      a.resp=null; a.auto=false; // volta a ser aplicável → liberta a resposta automática
+    }
+  });
+}
 
-        function initializeTypesCarousel() {
-            const carousel = document.getElementById('typesCarousel');
-            carousel.innerHTML = '';
-            
-            Object.entries(TIPOS).forEach(([key, tipo]) => {
-                const ball = document.createElement('div');
-                ball.className = `carousel-ball ${tipo.classe}`;
-                ball.innerHTML = `
-                    <div class="ball-emoji">${tipo.emoji}</div>
-                    <div class="ball-label">${tipo.nome}</div>
-                `;
-                ball.onclick = () => selectType(key, ball);
-                carousel.appendChild(ball);
-            });
-        }
+/* Regra do selo — critérios eliminatórios: entrada, circulação e porta (pivotante ou automática) */
+const CRITICAL = ["entrada","circulacao","pivotante","automatica"];
+const CRIT_SHORT = {entrada:"entrada",circulacao:"circulação",pivotante:"porta pivotante",automatica:"porta automática"};
+function joinNames(keys){
+  const a=keys.map(k=>CRIT_SHORT[k]);
+  return a.length<=1 ? (a[0]||"") : a.slice(0,-1).join(", ")+" e "+a[a.length-1];
+}
+function selo(rec){
+  const fail=[], pend=[];
+  CRITICAL.forEach(k=>{ const r=rec.answers[k].resp;
+    if(r==="Não") fail.push(k); else if(r===null) pend.push(k); });
+  if(fail.length) return {state:"excluido", fail};   // um eliminatório "Não" → excluído
+  if(pend.length) return {state:"pendente", pend};    // eliminatório por responder
+  return {state:"atribuido"};                         // entrada, circulação e porta cumpridas
+}
 
-        function selectType(key, element) {
-            document.querySelectorAll('#typesCarousel .carousel-ball').forEach(b => b.classList.remove('selected'));
-            element.classList.add('selected');
-            selectedType = key;
-            document.getElementById('nextBtn').disabled = false;
-        }
+/* ================= Armazenamento (Claude storage → localStorage → memória) ================= */
+const KEY = "selo_acessibilidade_v1";
+let memStore = null;
+const Store = {
+  async load(){
+    try{
+      if(window.storage && window.storage.get){
+        const r = await window.storage.get(KEY);
+        return r && r.value ? JSON.parse(r.value) : [];
+      }
+    }catch(e){}
+    try{
+      if(typeof localStorage!=="undefined"){
+        const v = localStorage.getItem(KEY);
+        return v ? JSON.parse(v) : [];
+      }
+    }catch(e){}
+    return memStore || [];
+  },
+  async save(data){
+    const s = JSON.stringify(data);
+    try{
+      if(window.storage && window.storage.set){ await window.storage.set(KEY, s); return; }
+    }catch(e){}
+    try{
+      if(typeof localStorage!=="undefined"){ localStorage.setItem(KEY, s); return; }
+    }catch(e){}
+    memStore = data;
+  }
+};
+if(window.Sync) Sync.wrapStore(Store); // ponto único de integração com a sincronização (ver sync.js)
 
-        // ===== FLUXO DE FASES =====
-        function nextPhase() {
-            if (currentPhase === 1 && !selectedCategory) {
-                alert('Selecione uma categoria');
-                return;
-            }
+/* ================= Estado ================= */
+let records = [];
+let current = null; // registo em edição
+let activeTab = "todas";
 
-            if (currentPhase === 1) {
-                currentPhase = 2;
-                document.getElementById('phase1').style.display = 'none';
-                document.getElementById('phase2').style.display = 'block';
-                
-                // Atualizar título da fase 2
-                document.getElementById('phase2Title').textContent = `Fase 2: ${CATEGORIAS[selectedCategory].nome}`;
-                document.getElementById('phase2Subtitle').textContent = 'Qual é a situação?';
-                
-                initializeTypesCarousel();
-                document.getElementById('backBtn').style.display = 'block';
-                document.getElementById('nextBtn').disabled = true;
-            } 
-            else if (currentPhase === 2 && !selectedType) {
-                alert('Selecione um tipo');
-                return;
-            }
-            else if (currentPhase === 2) {
-                currentPhase = 3;
-                document.getElementById('phase2').style.display = 'none';
-                document.getElementById('phase3').style.display = 'block';
-                
-                // Atualizar confirmação
-                updateConfirmation();
-                
-                document.getElementById('nextBtn').textContent = '✓ Guardar Registo';
-                document.getElementById('nextBtn').disabled = false;
-                document.getElementById('nextBtn').onclick = finalizarRegisto;
-            }
-        }
+function blankRecord(){
+  const answers = {};
+  CRITERIA.forEach(c=>answers[c.k]={resp:null,obs:"",auto:false});
+  return {id:"e"+Date.now()+Math.floor(Math.random()*999),
+    nome:"",policia:"",atividade:null,ambito:null,coord:"",foto:null,foto_url:null,
+    status:"rascunho",finalizado:null,answers,criado:null,atualizado:null};
+}
 
-        function goBack() {
-            if (currentPhase === 1) return;
-            
-            if (currentPhase === 2) {
-                currentPhase = 1;
-                document.getElementById('phase1').style.display = 'block';
-                document.getElementById('phase2').style.display = 'none';
-                document.getElementById('backBtn').style.display = 'none';
-                document.getElementById('nextBtn').textContent = 'Seguinte →';
-                document.getElementById('nextBtn').disabled = !selectedCategory;
-                document.getElementById('nextBtn').onclick = nextPhase;
-            } 
-            else if (currentPhase === 3) {
-                currentPhase = 2;
-                document.getElementById('phase2').style.display = 'block';
-                document.getElementById('phase3').style.display = 'none';
-                document.getElementById('nextBtn').textContent = 'Seguinte →';
-                document.getElementById('nextBtn').disabled = false;
-                document.getElementById('nextBtn').onclick = nextPhase;
-            }
-        }
+/* ================= Sincronização (UI) ================= */
+const SYNC_STATUS_LABEL={idle:"sincronizado",syncing:"a sincronizar…",error:"erro de sync",
+  offline:"offline",unconfigured:"sync desligado"};
+function updateSyncBadge(status){
+  const dot=document.getElementById("syncDot"), lbl=document.getElementById("syncLabel");
+  if(!dot||!lbl) return;
+  dot.className="sync-dot "+status;
+  const equipa=(window.Sync&&Sync.configured)?Sync.getEquipa():null;
+  lbl.textContent=(SYNC_STATUS_LABEL[status]||status)+(equipa?" · "+equipa:"");
+}
+function changeEquipa(){
+  if(!window.Sync||!Sync.configured){
+    toast("Sincronização não configurada — preencha as chaves em sync.js");
+    return;
+  }
+  const atual=Sync.getEquipa();
+  const novo=window.prompt("Código de equipa (partilhado entre dispositivos):",atual);
+  if(novo===null) return;
+  const val=Sync.setEquipa(novo);
+  updateSyncBadge("syncing");
+  toast("Equipa alterada para \""+val+"\" — a sincronizar…");
+}
 
-        function updateConfirmation() {
-            document.getElementById('confirmCategory').textContent = CATEGORIAS[selectedCategory].nome;
-            document.getElementById('confirmType').textContent = TIPOS[selectedType].nome;
-            
-            if (currentLocation) {
-                document.getElementById('confirmLocation').textContent = `${currentLocation.lat.toFixed(4)}, ${currentLocation.lng.toFixed(4)}`;
-            }
-        }
+/* ================= Arranque ================= */
+(async function init(){
+  records = await Store.load();
+  renderList();
+  updateSyncBadge(window.Sync&&Sync.configured?"syncing":"unconfigured");
+  if(window.Sync){
+    Sync.init({
+      records,
+      onChange(updated){ records=updated; renderList(); },
+      onStatus(status){ updateSyncBadge(status); }
+    });
+  }
+})();
 
-        // ===== FOTO =====
-        function handlePhotoSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    currentPhoto = event.target.result;
-                    const display = document.getElementById('photoDisplay');
-                    display.classList.remove('empty');
-                    display.innerHTML = `<img src="${currentPhoto}" alt="Foto">`;
-                };
-                reader.readAsDataURL(file);
-            }
-        }
+/* ================= Navegação ================= */
+function goList(){
+  document.getElementById("listView").style.display="";
+  document.getElementById("formView").style.display="none";
+  document.getElementById("fabList").style.display="";
+  document.getElementById("fabForm").style.display="none";
+  document.getElementById("backBtn").style.display="none";
+  document.getElementById("topTitle").textContent="Selo de Acessibilidade";
+  document.getElementById("topSub").textContent="Comércio · Serviços · Restauração";
+  current=null; window.scrollTo(0,0); renderList();
+}
+function goForm(){
+  document.getElementById("listView").style.display="none";
+  document.getElementById("formView").style.display="";
+  document.getElementById("fabList").style.display="none";
+  document.getElementById("fabForm").style.display="";
+  document.getElementById("backBtn").style.display="";
+  window.scrollTo(0,0);
+}
 
-        // ===== GUARDAR REGISTO =====
-        function finalizarRegisto() {
-            if (!currentLocation) {
-                alert('Aguarde a localização GPS...');
-                return;
-            }
+/* ================= Lista ================= */
+function verdict(rec){
+  let ok=0,no=0,na=0;
+  CRITERIA.forEach(c=>{const r=rec.answers[c.k].resp;
+    if(r==="Sim")ok++;else if(r==="Não")no++;else if(r==="N/a")na++;});
+  const answered=ok+no+na, pend=CRITERIA.length-answered, base=ok+no;
+  const pct = base>0 ? Math.round(ok/base*100) : null;
+  let state,label,desc;
+  if(pend>0){state="inc";label="Avaliação incompleta";desc=pend+" critério"+(pend>1?"s":"")+" por responder";}
+  else if(no>0){state="no";label="Barreiras identificadas";desc=no+" critério"+(no>1?"s":"")+" não conforme"+(no>1?"s":"");}
+  else{state="ok";label="Acessível";desc="Todos os critérios aplicáveis conformes";}
+  return {ok,no,na,pend,pct,state,label,desc,answered};
+}
 
-            // Tirar foto automaticamente se não tiver
-            if (!currentPhoto) {
-                document.getElementById('photoInput').click();
-                return;
-            }
+const TAB_LABEL={todas:"",curso:"em curso",realizadas:"realizadas"};
+const EMPTY_MSG={
+  todas:{ico:"🏬",t:"Ainda sem avaliações",s:"Toque em “Nova avaliação” para começar a avaliar um estabelecimento."},
+  curso:{ico:"🗂️",t:"Nada em curso",s:"Não há rascunhos por terminar."},
+  realizadas:{ico:"🏁",t:"Sem avaliações finalizadas",s:"Toque em “Finalizar avaliação” para concluir um registo."}
+};
+function recStatus(r){ return r.status==="realizada" ? "realizada" : "rascunho"; }
+function filteredRecords(){
+  if(activeTab==="realizadas") return records.filter(r=>recStatus(r)==="realizada");
+  if(activeTab==="curso") return records.filter(r=>recStatus(r)!=="realizada");
+  return records.slice();
+}
+function setTab(f){ activeTab=f; renderList(); }
 
-            const registo = {
-                id: Date.now(),
-                categoria: selectedCategory,
-                tipo: selectedType,
-                lat: currentLocation.lat,
-                lng: currentLocation.lng,
-                accuracy: currentLocation.accuracy,
-                foto: currentPhoto,
-                timestamp: new Date().toISOString()
-            };
+function renderSummary(list){
+  const el=document.getElementById("summaryCard");
+  let comSelo=0,excl=0,pend=0,pctSum=0,pctN=0;
+  list.forEach(r=>{ const s=selo(r), v=verdict(r);
+    if(s.state==="atribuido")comSelo++; else if(s.state==="excluido")excl++; else pend++;
+    if(v.pct!==null){pctSum+=v.pct;pctN++;} });
+  const avg=pctN?Math.round(pctSum/pctN):null, total=list.length;
+  const lbl=(total===1?"avaliação":"avaliações")+(TAB_LABEL[activeTab]?" · "+TAB_LABEL[activeTab]:"");
+  el.innerHTML=`
+    <div class="s-big"><span class="s-num">${total}</span><span class="s-lbl">${lbl}</span></div>
+    <div class="s-stats">
+      <div class="s-stat ok"><div class="n">${comSelo}</div><div class="t">Com selo</div></div>
+      <div class="s-stat no"><div class="n">${excl}</div><div class="t">Excluídos</div></div>
+      <div class="s-stat inc"><div class="n">${pend}</div><div class="t">Pendentes</div></div>
+    </div>
+    ${avg!==null?`<div class="s-conf"><span>Conformidade média</span><b>${avg}%</b></div>`:``}`;
+}
 
-            registos.push(registo);
-            localStorage.setItem('registos', JSON.stringify(registos));
+function renderList(){
+  [...document.querySelectorAll("#tabBar .tab")].forEach(b=>
+    b.setAttribute("aria-pressed", b.dataset.f===activeTab?"true":"false"));
+  const body=document.getElementById("listBody");
+  const summary=document.getElementById("summaryCard"), tabbar=document.getElementById("tabBar");
+  document.getElementById("countPill").textContent =
+    records.length ? records.length+(records.length===1?" registo":" registos") : "";
 
-            // Reset
-            resetForm();
-            alert('✓ Registo guardado com sucesso!');
-        }
+  if(!records.length){
+    summary.style.display="none"; tabbar.style.display="none";
+    body.innerHTML=`<div class="empty"><div class="ico">🏬</div>
+      <p>Ainda sem avaliações</p>
+      <span>Toque em “Nova avaliação” para começar a avaliar um estabelecimento.</span></div>`;
+    return;
+  }
+  summary.style.display=""; tabbar.style.display="";
+  const list=filteredRecords();
+  renderSummary(list);
 
-        function resetForm() {
-            currentPhase = 1;
-            selectedCategory = null;
-            selectedType = null;
-            currentPhoto = null;
+  if(!list.length){
+    const m=EMPTY_MSG[activeTab];
+    body.innerHTML=`<div class="empty"><div class="ico">${m.ico}</div><p>${m.t}</p><span>${m.s}</span></div>`;
+    return;
+  }
+  const sorted=[...list].sort((a,b)=>(b.atualizado||0)-(a.atualizado||0));
+  body.innerHTML=`<div class="card-list">`+sorted.map(r=>{
+    const v=verdict(r);
+    const s=selo(r);
+    const badge = s.state==="atribuido"?`<span class="badge ok">Com selo</span>`
+      : s.state==="excluido"?`<span class="badge no">Excluído</span>`
+      : `<span class="badge inc">Pendente</span>`;
+    const nm = r.nome ? esc(r.nome) : "Sem nome";
+    const meta=[];
+    if(r.atividade) meta.push(`<span class="tag">${esc(r.atividade)}</span>`);
+    if(recStatus(r)==="realizada" && r.finalizado)
+      meta.push("Finalizada "+new Date(r.finalizado).toLocaleDateString("pt-PT",{day:"numeric",month:"short",year:"numeric"}));
+    else meta.push(`<span class="tag draft">Em curso</span>`);
+    meta.push(v.pct!==null?`${v.pct}% conforme`:`por avaliar`);
+    const thumb = (r.foto||r.foto_url)
+      ? `<span class="thumb" style="background-image:url('${r.foto||r.foto_url}')"></span>`
+      : `<span class="thumb empty"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2h7L17 8h3v11H4V8z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="1.8"/></svg></span>`;
+    return `<button class="estab" onclick="openEval('${r.id}')">
+      ${thumb}
+      <div class="estab-body">
+        <div class="row1"><span class="nm">${nm}</span>${badge}</div>
+        <div class="meta">${meta.join('<span class="dot"></span>')}</div>
+      </div></button>`;
+  }).join("")+`</div>`;
+}
 
-            document.getElementById('phase1').style.display = 'block';
-            document.getElementById('phase2').style.display = 'none';
-            document.getElementById('phase3').style.display = 'none';
-            document.getElementById('backBtn').style.display = 'none';
-            document.getElementById('nextBtn').textContent = 'Seguinte →';
-            document.getElementById('nextBtn').disabled = true;
-            document.getElementById('nextBtn').onclick = nextPhase;
-            document.getElementById('photoDisplay').classList.add('empty');
-            document.getElementById('photoDisplay').innerHTML = '📷';
-            document.getElementById('photoInput').value = '';
+/* ================= Abrir / criar ================= */
+function newEval(){ current=blankRecord(); buildForm(); goForm(); }
+function openEval(id){ current=JSON.parse(JSON.stringify(records.find(r=>r.id===id))); buildForm(); goForm(); }
 
-            inicializarCarousel();
-        }
+function buildForm(){
+  const r=current;
+  document.getElementById("topTitle").textContent = r.nome || "Nova avaliação";
+  document.getElementById("topSub").textContent =
+    r.status==="realizada" && r.finalizado
+      ? "Realizada em "+new Date(r.finalizado).toLocaleDateString("pt-PT",{day:"numeric",month:"short",year:"numeric"})
+      : (r.criado ? "Rascunho" : "Novo registo");
+  document.getElementById("fNome").value=r.nome||"";
+  document.getElementById("fPolicia").value=r.policia||"";
+  document.getElementById("fCoord").value=r.coord||"";
+  // segmentos caracterização
+  setSeg("fAtividade",r.atividade);
+  setSeg("fAmbito",r.ambito);
+  document.getElementById("delBtn").style.display = r.criado ? "" : "none";
+  // critérios
+  const cl=document.getElementById("critList");
+  cl.innerHTML=CRITERIA.map((c,i)=>{
+    const a=r.answers[c.k];
+    const added = c.added ? `<em>(referência sugerida — pode editar)</em>` : ``;
+    return `<div class="crit ${a.resp?'answered':''}" id="crit-${c.k}">
+      <div class="crit-head">
+        <span class="crit-n">${i+1}</span>
+        <span class="crit-name">${esc(c.n)}${CRITICAL.includes(c.k)?'<span class="crit-flag">eliminatório</span>':''}</span>
+        <button class="info-toggle" onclick="toggleInfo('${c.k}')" aria-expanded="false" id="tog-${c.k}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 11v5M12 8h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+          info
+        </button>
+      </div>
+      <div class="auto-note" id="auto-${c.k}" style="display:none"></div>
+      <div class="info-box" id="info-${c.k}">
+        <span class="lbl">Norma técnica</span>${esc(c.info)} ${added}
+      </div>
+      <div class="seg three" role="group">
+        <button class="opt sim" data-v="Sim" onclick="answer('${c.k}','Sim',this)">Sim</button>
+        <button class="opt nao" data-v="Não" onclick="answer('${c.k}','Não',this)">Não</button>
+        <button class="opt na"  data-v="N/a" onclick="answer('${c.k}','N/a',this)">N/a</button>
+      </div>
+      <textarea placeholder="Observações…" oninput="setObs('${c.k}',this.value)">${esc(a.obs||"")}</textarea>
+    </div>`;
+  }).join("");
+  // foto
+  renderPhoto();
+  // âmbito por atividade (N/a automático) + aplicar respostas guardadas
+  applyActivityScope(false);
+  CRITERIA.forEach(c=>refreshCrit(c.k));
+  // ligar inputs de texto
+  document.getElementById("fNome").oninput=e=>{current.nome=e.target.value;
+    document.getElementById("topTitle").textContent=e.target.value||"Nova avaliação";};
+  document.getElementById("fPolicia").oninput=e=>current.policia=e.target.value;
+  document.getElementById("fCoord").oninput=e=>current.coord=e.target.value;
+  updateVerdict();
+}
 
-        // ===== MAPA =====
-        function inicializarMapa() {
-            if (map) return;
+/* ================= Interações ================= */
+function toggleInfo(k){
+  const box=document.getElementById("info-"+k), tog=document.getElementById("tog-"+k);
+  const open=box.classList.toggle("open");
+  tog.setAttribute("aria-expanded",open);
+}
+function pickAct(btn){
+  const g=btn.parentElement;
+  const same = current.atividade===btn.dataset.v;
+  [...g.children].forEach(b=>b.setAttribute("aria-pressed","false"));
+  if(same){ current.atividade=null; }
+  else{ btn.setAttribute("aria-pressed","true"); current.atividade=btn.dataset.v; }
+  applyActivityScope(true);
+  Object.keys(ACTIVITY_SCOPE).forEach(refreshCrit);
+  updateVerdict();
+}
+function pickSNA(btn,gid){
+  const g=document.getElementById(gid);
+  [...g.children].forEach(b=>b.setAttribute("aria-pressed","false"));
+  btn.setAttribute("aria-pressed","true");
+  if(gid==="fAmbito")current.ambito=btn.dataset.v;
+}
+function answer(k,val,btn){
+  const g=btn.parentElement;
+  const same = current.answers[k].resp===val;
+  [...g.children].forEach(b=>b.setAttribute("aria-pressed","false"));
+  if(same){ current.answers[k].resp=null; }
+  else{ btn.setAttribute("aria-pressed","true"); current.answers[k].resp=val; }
+  current.answers[k].auto=false;
+  document.getElementById("crit-"+k).classList.toggle("answered", !!current.answers[k].resp);
+  updateAutoNote(k);
+  updateVerdict();
+}
+function setObs(k,v){ current.answers[k].obs=v; }
 
-            map = L.map('map').setView([38.7223, -9.1393], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
-                maxZoom: 19
-            }).addTo(map);
+function setSeg(gid,val){
+  const g=document.getElementById(gid);
+  [...g.children].forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===val ? "true":"false"));
+}
+function setSeg2(critId,val){
+  const g=document.getElementById(critId).querySelector(".seg");
+  [...g.children].forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===val ? "true":"false"));
+}
+function refreshCrit(k){
+  const a=current.answers[k];
+  setSeg2("crit-"+k, a.resp);
+  const el=document.getElementById("crit-"+k);
+  if(el) el.classList.toggle("answered", !!a.resp);
+  updateAutoNote(k);
+}
+function updateAutoNote(k){
+  const note=document.getElementById("auto-"+k);
+  if(!note) return;
+  if(current.answers[k].auto){
+    note.style.display="";
+    note.innerHTML=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor"/></svg>`
+      +`N/a automático — não aplicável a ${esc(current.atividade||"esta atividade")}. Toque para alterar.`;
+  }else{ note.style.display="none"; note.innerHTML=""; }
+}
 
-            if (currentLocation) {
-                L.circleMarker([currentLocation.lat, currentLocation.lng], {
-                    radius: 8,
-                    fillColor: '#2c5aa0',
-                    color: '#fff',
-                    weight: 2,
-                    fillOpacity: 0.8
-                }).addTo(map).bindPopup('📍 Localização Atual');
-            }
+/* ---- Fotografia do estabelecimento ---- */
+function renderPhoto(){
+  const area=document.getElementById("photoArea");
+  if(!area) return;
+  if(current.foto||current.foto_url){
+    area.innerHTML=`<div class="photo-preview">
+        <img src="${current.foto||current.foto_url}" alt="Foto do estabelecimento">
+      </div>
+      <div class="photo-actions">
+        <button class="photo-act" onclick="document.getElementById('photoInput').click()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2h7L17 8h3v11H4V8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3" stroke="currentColor" stroke-width="2"/></svg>
+          Substituir foto
+        </button>
+        <button class="photo-act danger" onclick="removePhoto()">Remover</button>
+      </div>`;
+  }else{
+    area.innerHTML=`<button class="photo-drop" onclick="document.getElementById('photoInput').click()">
+      <span class="pd-ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none"><path d="M4 8h3l1.5-2h7L17 8h3v11H4V8z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="13" r="3.2" stroke="currentColor" stroke-width="2"/></svg></span>
+      <span class="pd-title">Fotografar o estabelecimento</span>
+      <span class="pd-sub">Toque para abrir a câmara</span>
+    </button>`;
+  }
+}
+function handlePhoto(input){
+  const file=input.files&&input.files[0];
+  if(!file){ return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=1024; let w=img.width, h=img.height;
+      if(w>h && w>max){ h=Math.round(h*max/w); w=max; }
+      else if(h>=w && h>max){ w=Math.round(w*max/h); h=max; }
+      const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+      cv.getContext("2d").drawImage(img,0,0,w,h);
+      current.foto=cv.toDataURL("image/jpeg",0.7);
+      current.foto_url=null; // força novo envio para o Storage (ver sync.js)
+      renderPhoto(); toast("Foto adicionada");
+    };
+    img.onerror=()=>toast("Não foi possível ler a imagem");
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value=""; // permite voltar a escolher o mesmo ficheiro
+}
+function removePhoto(){ current.foto=null; current.foto_url=null; renderPhoto(); }
 
-            registos.forEach(r => adicionarMarcador(r));
-            atualizarLegendaMapa();
-        }
+/* ================= Veredito ao vivo ================= */
+function updateVerdict(){
+  const v=verdict(current), s=selo(current);
+  const map={atribuido:"ok",excluido:"no",pendente:"inc"};
+  const cls=map[s.state];
+  const icon={ok:"✓",no:"✕",inc:"◐"}[cls];
+  const label={atribuido:"Selo atribuído",excluido:"Selo excluído",pendente:"Selo pendente"}[s.state];
+  let desc;
+  if(s.state==="excluido") desc="Critério eliminatório não cumprido: "+joinNames(s.fail);
+  else if(s.state==="pendente") desc="Responda aos critérios eliminatórios: entrada, circulação e porta";
+  else desc = v.pend>0 ? ("Eliminatórios cumpridos — faltam "+v.pend+" critério"+(v.pend>1?"s":"")+" por responder") : "Todos os critérios cumpridos";
+  document.getElementById("vIcon").className="v-icon "+cls;
+  document.getElementById("vIcon").textContent=icon;
+  const st=document.getElementById("vStatus"); st.className="st "+cls; st.textContent=label;
+  document.getElementById("vDesc").textContent=desc;
+  document.getElementById("vPct").textContent = v.pct!==null ? v.pct+"%" : "—";
+  document.getElementById("lgOk").textContent=v.ok;
+  document.getElementById("lgNo").textContent=v.no;
+  document.getElementById("lgNa").textContent=v.na;
+  document.getElementById("lgPend").textContent=v.pend;
+  const bar=document.getElementById("vBar").children;
+  bar[0].style.flexGrow=v.ok; bar[1].style.flexGrow=v.no; bar[2].style.flexGrow=v.na;
+  // botão Finalizar: bloqueado enquanto houver critérios por responder
+  const fab=document.getElementById("finalizeBtn");
+  if(fab){
+    const lbl=fab.querySelector(".fab-label");
+    if(v.pend>0){ fab.classList.add("locked"); lbl.textContent="Faltam "+v.pend+" critério"+(v.pend>1?"s":"")+" para finalizar"; }
+    else { fab.classList.remove("locked"); lbl.textContent="Finalizar avaliação"; }
+  }
+}
 
-        function adicionarMarcador(registo) {
-            const tipo = TIPOS[registo.tipo];
-            const iconUrl = `data:image/svg+xml;base64,${btoa(`
-                <svg width="30" height="40" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M15 0C6.7 0 0 6.7 0 15c0 9 15 25 15 25s15-16 15-25c0-8.3-6.7-15-15-15z" fill="${tipo.cor}"/>
-                    <text x="15" y="16" font-size="16" fill="white" text-anchor="middle" dominant-baseline="central">${tipo.emoji}</text>
-                </svg>
-            `)}`;
+/* ================= GPS ================= */
+function getLoc(){
+  const btn=document.getElementById("geoBtn");
+  if(!navigator.geolocation){toast("GPS não disponível neste dispositivo");return;}
+  btn.classList.add("loading"); btn.textContent="A localizar…";
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const c=pos.coords.latitude.toFixed(6)+", "+pos.coords.longitude.toFixed(6);
+    document.getElementById("fCoord").value=c; current.coord=c;
+    resetGeo(btn); toast("Coordenadas capturadas");
+  },err=>{
+    resetGeo(btn);
+    toast(err.code===1?"Permissão de localização recusada":"Não foi possível obter a localização");
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:0});
+}
+function resetGeo(btn){
+  btn.classList.remove("loading");
+  btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> GPS`;
+}
 
-            L.marker([registo.lat, registo.lng], {
-                icon: L.icon({
-                    iconUrl: iconUrl,
-                    iconSize: [30, 40],
-                    iconAnchor: [15, 40]
-                })
-            }).addTo(map).bindPopup(`
-                <strong>${CATEGORIAS[registo.categoria].nome}</strong><br>
-                ${TIPOS[registo.tipo].nome}<br>
-                ${registo.foto ? `<img src="${registo.foto}" style="width:120px;margin-top:8px;border-radius:4px;">` : ''}
-            `);
-        }
+/* ================= Guardar / eliminar ================= */
+async function saveEval(){
+  if(!current.nome || !current.nome.trim()){ toast("Indique o nome do estabelecimento"); 
+    document.getElementById("fNome").focus(); return; }
+  const now=Date.now();
+  if(!current.criado)current.criado=now;
+  current.atualizado=now;
+  const i=records.findIndex(r=>r.id===current.id);
+  if(i>=0)records[i]=current; else records.push(current);
+  await Store.save(records);
+  if(recStatus(current)!=="realizada") activeTab="todas";
+  const kb=Math.round(JSON.stringify(records).length/1024);
+  toast(kb>4200 ? "Guardado — memória quase cheia, exporte os dados" : "Guardado");
+  setTimeout(goList,600);
+}
+function finalizeEval(){
+  if(!current.nome || !current.nome.trim()){ toast("Indique o nome do estabelecimento");
+    document.getElementById("fNome").focus(); return; }
+  const v=verdict(current);
+  if(v.pend>0){
+    toast("Faltam responder "+v.pend+" critério"+(v.pend>1?"s":"")+" para finalizar");
+    const first=CRITERIA.find(c=>!current.answers[c.k].resp);
+    if(first) highlightCrit(first.k);
+    return;
+  }
+  doFinalize();
+}
+function highlightCrit(k){
+  const el=document.getElementById("crit-"+k);
+  if(!el) return;
+  el.scrollIntoView({behavior:"smooth",block:"center"});
+  el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  setTimeout(()=>el.classList.remove("flash"),1600);
+}
+async function doFinalize(){
+  const now=Date.now();
+  if(!current.criado)current.criado=now;
+  if(!current.finalizado)current.finalizado=now; // carimba a data do registo
+  current.status="realizada";
+  current.atualizado=now;
+  const i=records.findIndex(r=>r.id===current.id);
+  if(i>=0)records[i]=current; else records.push(current);
+  await Store.save(records);
+  activeTab="realizadas";
+  const d=new Date(current.finalizado).toLocaleDateString("pt-PT",{day:"numeric",month:"long",year:"numeric"});
+  toast("Avaliação finalizada em "+d);
+  setTimeout(goList,800);
+}
+function askDelete(){
+  openSheet("Eliminar avaliação","Esta ação remove o registo deste dispositivo e não pode ser anulada.",async()=>{
+    records=records.filter(r=>r.id!==current.id);
+    await Store.save(records); closeSheet(); toast("Avaliação eliminada"); setTimeout(goList,400);
+  });
+}
 
-        function atualizarLegendaMapa() {
-            const legend = document.getElementById('mapLegend');
-            const tipoCounts = {};
-            
-            registos.forEach(r => {
-                tipoCounts[r.tipo] = (tipoCounts[r.tipo] || 0) + 1;
-            });
+/* ================= Exportação ================= */
+function recToRow(r){
+  const v=verdict(r), s=selo(r);
+  const row={ Nome:r.nome,"Numero de policia":r.policia,Atividade:r.atividade||"",
+    "Ambito DL 163":r.ambito||"",Coordenadas:r.coord||"","Tem foto":(r.foto||r.foto_url)?"Sim":"Não",
+    "Foto URL":r.foto_url||"",
+    Selo:(s.state==="atribuido"?"Atribuído":s.state==="excluido"?"Excluído":"Pendente"),
+    "Motivo de exclusao":(s.state==="excluido"?joinNames(s.fail):""),
+    Estado:(r.status==="realizada"?"Realizada":"Rascunho"),
+    "Finalizada em":r.finalizado?new Date(r.finalizado).toLocaleString("pt-PT"):"",
+    Veredito:v.label,"% conforme":v.pct!==null?v.pct:"",
+    Sim:v.ok,Nao:v.no,"N/a":v.na,"Por responder":v.pend,
+    "Atualizada em":r.atualizado?new Date(r.atualizado).toLocaleString("pt-PT"):"" };
+  CRITERIA.forEach(c=>{
+    row[c.n]=r.answers[c.k].resp||"";
+    row[c.n+" — obs"]=r.answers[c.k].obs||"";
+  });
+  return row;
+}
+function toCSV(rows){
+  if(!rows.length)return"";
+  const cols=Object.keys(rows[0]);
+  const esc=v=>{v=(v==null?"":String(v));return /[",;\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  return cols.join(";")+"\n"+rows.map(r=>cols.map(c=>esc(r[c])).join(";")).join("\n");
+}
+function download(name,text,type){
+  try{
+    const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download=name;document.body.appendChild(a);
+    a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+    toast("Ficheiro exportado");
+  }catch(e){
+    navigator.clipboard&&navigator.clipboard.writeText(text);
+    toast("Copiado para a área de transferência");
+  }
+}
+function exportOne(){
+  const csv=toCSV([recToRow(current)]);
+  const nm=(current.nome||"avaliacao").replace(/[^\w\-]+/g,"_").slice(0,40);
+  download(nm+".csv",csv,"text/csv;charset=utf-8");
+}
+function exportAll(){
+  if(!records.length){toast("Sem registos para exportar");return;}
+  download("acessibilidade_"+new Date().toISOString().slice(0,10)+".csv",
+    toCSV(records.map(recToRow)),"text/csv;charset=utf-8");
+}
 
-            let html = '';
-            Object.entries(TIPOS).forEach(([key, tipo]) => {
-                if (tipoCounts[key]) {
-                    html += `
-                        <div class="legend-item">
-                            <div class="legend-color" style="background:${tipo.cor}"></div>
-                            <span>${tipo.nome}: ${tipoCounts[key]}</span>
-                        </div>
-                    `;
-                }
-            });
+/* ================= Sheet + toast ================= */
+let sheetCb=null;
+function openSheet(title,msg,cb,okLabel,okClass){
+  document.getElementById("sheetTitle").textContent=title;
+  document.getElementById("sheetMsg").textContent=msg;
+  const ok=document.getElementById("sheetOk");
+  ok.textContent=okLabel||"Eliminar";
+  ok.className="btn "+(okClass||"btn-danger");
+  sheetCb=cb; ok.onclick=cb;
+  document.getElementById("sheetBg").classList.add("show");
+  document.getElementById("sheet").classList.add("show");
+}
+function closeSheet(){
+  document.getElementById("sheetBg").classList.remove("show");
+  document.getElementById("sheet").classList.remove("show");
+}
+let toastT=null;
+function toast(msg){
+  const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);
+}
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 
-            legend.innerHTML = html || '<p style="font-size:0.8rem;color:#999;">Sem registos</p>';
-        }
-
-        // ===== DADOS =====
-        function atualizarDados() {
-            const stats = document.getElementById('stats');
-            const total = registos.length;
-            const perigo = registos.filter(r => r.tipo === 'perigo').length;
-            const resolver = registos.filter(r => r.tipo === 'resolver').length;
-            const bom = registos.filter(r => r.tipo === 'bom').length;
-
-            stats.innerHTML = `
-                <div class="stat-card">
-                    <div class="number">${total}</div>
-                    <div class="label">Total de Registos</div>
-                </div>
-                <div class="stat-card">
-                    <div class="number" style="color:#e74c3c">${perigo}</div>
-                    <div class="label">Perigo Urgente</div>
-                </div>
-                <div class="stat-card">
-                    <div class="number" style="color:#f39c12">${resolver}</div>
-                    <div class="label">A Resolver</div>
-                </div>
-                <div class="stat-card">
-                    <div class="number" style="color:#27ae60">${bom}</div>
-                    <div class="label">Bom Exemplo</div>
-                </div>
-            `;
-
-            const dataList = document.getElementById('dataList');
-            if (registos.length === 0) {
-                dataList.innerHTML = '<div class="empty-state">Nenhum registo ainda</div>';
-                return;
-            }
-
-            dataList.innerHTML = registos
-                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                .map(r => `
-                    <div class="data-item">
-                        <div class="data-item-header">
-                            <span class="data-item-category">${CATEGORIAS[r.categoria].nome}</span>
-                            <span class="data-item-date">${new Date(r.timestamp).toLocaleString('pt-PT')}</span>
-                        </div>
-                        <div style="font-size:0.9rem;margin:0.5rem 0;">
-                            <strong>Tipo:</strong> ${TIPOS[r.tipo].nome}
-                        </div>
-                        <div style="font-size:0.85rem;color:#666;">
-                            📍 ${r.lat.toFixed(5)}, ${r.lng.toFixed(5)}
-                        </div>
-                        ${r.foto ? `<img src="${r.foto}" class="data-item-photo">` : ''}
-                    </div>
-                `)
-                .join('');
-        }
-
-        // ===== EXPORTAÇÃO =====
-        function exportCSV() {
-            if (registos.length === 0) {
-                alert('Nenhum registo para exportar');
-                return;
-            }
-
-            const headers = ['Data', 'Categoria', 'Tipo', 'Latitude', 'Longitude', 'Precisão'];
-            const rows = registos.map(r => [
-                new Date(r.timestamp).toLocaleString('pt-PT'),
-                CATEGORIAS[r.categoria].nome,
-                TIPOS[r.tipo].nome,
-                r.lat.toFixed(6),
-                r.lng.toFixed(6),
-                Math.round(r.accuracy)
-            ]);
-
-            const csv = [headers, ...rows].map(row => 
-                row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-            ).join('\n');
-
-            downloadFile(csv, 'acessibilidade_registos.csv', 'text/csv');
-        }
-
-        function exportJSON() {
-            if (registos.length === 0) {
-                alert('Nenhum registo para exportar');
-                return;
-            }
-
-            const data = {
-                exportDate: new Date().toISOString(),
-                totalRegistos: registos.length,
-                registos: registos
-            };
-
-            downloadFile(JSON.stringify(data, null, 2), 'acessibilidade_registos.json', 'application/json');
-        }
-
-        function downloadFile(content, filename, type) {
-            const blob = new Blob([content], { type });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        // ===== PERSISTÊNCIA =====
-        function carregarRegistos() {
-            const dados = localStorage.getItem('registos');
-            registos = dados ? JSON.parse(dados) : [];
-        }
-
-        // Atualizar GPS a cada 10s
-        setInterval(getLocation, 10000);
-    </script>
+/* Botão exportar-tudo na lista via toque longo no título? Simplesmente adiciona-se atalho: */
+document.querySelector(".list-head h2").addEventListener("dblclick",exportAll);
+</script>
+<script>
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
+</script>
 </body>
 </html>
