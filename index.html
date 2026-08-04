@@ -650,7 +650,13 @@ const Store = {
     }catch(e){}
     try{
       if(typeof localStorage!=="undefined"){ localStorage.setItem(KEY, s); return; }
-    }catch(e){}
+    }catch(e){
+      // Guarda em memória para não perder o registo já ali (nesta sessão), mas
+      // avisa quem chamou — sem isto, o utilizador vê "Guardado" e o registo
+      // desaparece silenciosamente na próxima abertura da app.
+      memStore = data;
+      throw e;
+    }
     memStore = data;
   }
 };
@@ -1050,7 +1056,12 @@ async function saveEval(){
   current.atualizado=now;
   const i=records.findIndex(r=>r.id===current.id);
   if(i>=0)records[i]=current; else records.push(current);
-  await Store.save(records);
+  try{
+    await Store.save(records);
+  }catch(e){
+    toast("Não guardou — armazenamento cheio. Exporte e elimine avaliações antigas (sobretudo com fotos).");
+    return; // fica no formulário: não navega como se tivesse gravado
+  }
   if(recStatus(current)!=="realizada") activeTab="todas";
   const kb=Math.round(JSON.stringify(records).length/1024);
   toast(kb>4200 ? "Guardado — memória quase cheia, exporte os dados" : "Guardado");
@@ -1087,7 +1098,12 @@ async function doFinalize(){
   current.atualizado=now;
   const i=records.findIndex(r=>r.id===current.id);
   if(i>=0)records[i]=current; else records.push(current);
-  await Store.save(records);
+  try{
+    await Store.save(records);
+  }catch(e){
+    toast("Não guardou — armazenamento cheio. Exporte e elimine avaliações antigas (sobretudo com fotos).");
+    return;
+  }
   activeTab="realizadas";
   const d=new Date(current.finalizado).toLocaleDateString("pt-PT",{day:"numeric",month:"long",year:"numeric"});
   toast("Avaliação finalizada em "+d);
