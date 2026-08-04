@@ -441,12 +441,12 @@
           </div>
         </div>
         <div class="field">
-          <label for="fCoord">Coordenadas (latitude, longitude)</label>
+          <label>Coordenadas</label>
           <div class="geo-row">
-            <input type="text" id="fCoord" placeholder="—" inputmode="decimal">
-            <button class="geo-btn" id="geoBtn" onclick="getLoc()">
+            <input type="text" id="fLat" placeholder="Latitude" inputmode="decimal">
+            <input type="text" id="fLon" placeholder="Longitude" inputmode="decimal">
+            <button class="geo-btn" id="geoBtn" onclick="getLoc()" title="Obter localização atual (GPS)" aria-label="Obter localização atual (GPS)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-              GPS
             </button>
           </div>
         </div>
@@ -583,7 +583,7 @@ function blankRecord(){
   const answers = {};
   CRITERIA.forEach(c=>answers[c.k]={resp:null,obs:"",auto:false});
   return {id:"e"+Date.now()+Math.floor(Math.random()*999),
-    nome:"",policia:"",atividade:null,ambito:null,coord:"",foto:null,foto_url:null,
+    nome:"",policia:"",atividade:null,ambito:null,lat:"",lon:"",foto:null,foto_url:null,
     status:"rascunho",finalizado:null,answers,criado:null,atualizado:null};
 }
 
@@ -610,9 +610,24 @@ function changeEquipa(){
   toast("Equipa alterada para \""+val+"\" — a sincronizar…");
 }
 
+/* ================= Migração ================= */
+// Versões anteriores guardavam um único campo "coord" ("lat, lon"); agora
+// são dois campos próprios (lat/lon), mais fáceis de importar num SIG.
+function migrateCoord(r){
+  if(typeof r.coord!=="string") return false;
+  if(!r.lat && !r.lon){
+    const parts=r.coord.split(",").map(s=>s.trim());
+    if(parts.length===2){ r.lat=parts[0]; r.lon=parts[1]; }
+  }
+  delete r.coord;
+  return true;
+}
+
 /* ================= Arranque ================= */
 (async function init(){
   records = await Store.load();
+  const migrated = records.reduce((any,r)=>migrateCoord(r)||any,false);
+  if(migrated) await Store.save(records);
   renderList();
   updateSyncBadge(window.Sync&&Sync.configured?"syncing":"unconfigured");
   if(window.Sync){
@@ -753,7 +768,8 @@ function buildForm(){
       : (r.criado ? "Rascunho" : "Novo registo");
   document.getElementById("fNome").value=r.nome||"";
   document.getElementById("fPolicia").value=r.policia||"";
-  document.getElementById("fCoord").value=r.coord||"";
+  document.getElementById("fLat").value=r.lat||"";
+  document.getElementById("fLon").value=r.lon||"";
   // segmentos caracterização
   setSeg("fAtividade",r.atividade);
   setSeg("fAmbito",r.ambito);
@@ -793,7 +809,8 @@ function buildForm(){
   document.getElementById("fNome").oninput=e=>{current.nome=e.target.value;
     document.getElementById("topTitle").textContent=e.target.value||"Nova avaliação";};
   document.getElementById("fPolicia").oninput=e=>current.policia=e.target.value;
-  document.getElementById("fCoord").oninput=e=>current.coord=e.target.value;
+  document.getElementById("fLat").oninput=e=>current.lat=e.target.value;
+  document.getElementById("fLon").oninput=e=>current.lon=e.target.value;
   updateVerdict();
 }
 
@@ -939,19 +956,16 @@ function updateVerdict(){
 function getLoc(){
   const btn=document.getElementById("geoBtn");
   if(!navigator.geolocation){toast("GPS não disponível neste dispositivo");return;}
-  btn.classList.add("loading"); btn.textContent="A localizar…";
+  btn.classList.add("loading");
   navigator.geolocation.getCurrentPosition(pos=>{
-    const c=pos.coords.latitude.toFixed(6)+", "+pos.coords.longitude.toFixed(6);
-    document.getElementById("fCoord").value=c; current.coord=c;
-    resetGeo(btn); toast("Coordenadas capturadas");
+    const lat=pos.coords.latitude.toFixed(6), lon=pos.coords.longitude.toFixed(6);
+    document.getElementById("fLat").value=lat; current.lat=lat;
+    document.getElementById("fLon").value=lon; current.lon=lon;
+    btn.classList.remove("loading"); toast("Coordenadas capturadas");
   },err=>{
-    resetGeo(btn);
+    btn.classList.remove("loading");
     toast(err.code===1?"Permissão de localização recusada":"Não foi possível obter a localização");
   },{enableHighAccuracy:true,timeout:12000,maximumAge:0});
-}
-function resetGeo(btn){
-  btn.classList.remove("loading");
-  btn.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg> GPS`;
 }
 
 /* ================= Guardar / eliminar ================= */
@@ -1013,7 +1027,7 @@ function askDelete(){
 function recToRow(r){
   const v=verdict(r), s=selo(r);
   const row={ Nome:r.nome,"Numero de policia":r.policia,Atividade:r.atividade||"",
-    "Ambito DL 163":r.ambito||"",Coordenadas:r.coord||"","Tem foto":(r.foto||r.foto_url)?"Sim":"Não",
+    "Ambito DL 163":r.ambito||"",Latitude:r.lat||"",Longitude:r.lon||"","Tem foto":(r.foto||r.foto_url)?"Sim":"Não",
     "Foto URL":r.foto_url||"",
     Selo:(s.state==="atribuido"?"Atribuído":s.state==="excluido"?"Excluído":"Pendente"),
     "Motivo de exclusao":(s.state==="excluido"?joinNames(s.fail):""),
