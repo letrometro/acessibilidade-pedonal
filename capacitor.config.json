@@ -1,0 +1,19 @@
+{
+  "appId": "pt.cml.acessibilidadepedonal",
+  "appName": "Acessibilidade Pedonal",
+  "webDir": "www",
+  "backgroundColor": "#2c5aa0",
+  "android": {
+    "backgroundColor": "#2c5aa0"
+  },
+  "ios": {
+    "backgroundColor": "#2c5aa0"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1000,
+      "backgroundColor": "#2c5aa0",
+      "showSpinner": false
+    }
+  }
+}

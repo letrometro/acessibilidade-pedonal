@@ -1,0 +1,120 @@
+═══════════════════════════════════════════════════════════════════════════════
+  📱 TRANSFORMAÇÃO EM APP NATIVA (Google Play / App Store)
+═══════════════════════════════════════════════════════════════════════════════
+
+O QUE FOI FEITO
+───────────────────────────────────────────────────────────────────────────────
+A aplicação (index.html) foi envolvida com o Capacitor, uma ferramenta que
+transforma um site em HTML/CSS/JS numa app Android e iOS "de verdade" —
+instalável a partir da Google Play Store e da App Store, com ícone próprio,
+sem barra de endereço do browser.
+
+Foram criadas duas pastas novas no repositório:
+  📁 android/   → projeto nativo Android (abre-se no Android Studio)
+  📁 ios/       → projeto nativo iOS (abre-se no Xcode, só em Mac)
+
+O código do index.html foi atualizado para usar GPS e câmara NATIVOS
+(através dos plugins oficiais @capacitor/geolocation e @capacitor/camera)
+quando corre dentro da app instalada — pede permissões como uma app normal.
+Quando aberto num browser normal (ex: GitHub Pages), continua a funcionar
+exatamente como antes, sem qualquer diferença.
+
+Também foi adicionado um workflow do GitHub Actions
+(.github/workflows/build-android.yml) que compila automaticamente um APK
+de teste sempre que fizeres alterações — não precisas de instalar nada
+para experimentar a app no telemóvel.
+
+IMPORTANTE: Não foi possível compilar o APK/IPA final aqui neste ambiente,
+porque este sandbox não tem o SDK Android nem acesso à internet necessário
+para o descarregar. Isso é normal — a compilação final faz-se no teu
+computador (com Android Studio) ou automaticamente no GitHub Actions.
+
+───────────────────────────────────────────────────────────────────────────────
+OPÇÃO A — TESTAR JÁ NO TELEMÓVEL (sem instalar nada)
+───────────────────────────────────────────────────────────────────────────────
+
+1. No GitHub, vai ao separador "Actions" do repositório
+2. Escolhe o workflow "Build APK Android (teste)"
+3. Clica "Run workflow" (ou espera que corra automaticamente após um push)
+4. Quando terminar (~3-5 min), abre a run e descarrega o artefacto
+   "app-debug-apk"
+5. Envia o ficheiro .apk para o telemóvel Android (email, drive, USB) e
+   instala-o manualmente (terás de autorizar "instalar de fontes
+   desconhecidas" nas definições do Android)
+
+Isto dá-te já uma app instalável para testar GPS, câmara e navegação —
+mas ainda não é a versão para publicar na Play Store (essa tem de ser
+"assinada digitalmente", ver Opção B).
+
+───────────────────────────────────────────────────────────────────────────────
+OPÇÃO B — PUBLICAR NA GOOGLE PLAY STORE
+───────────────────────────────────────────────────────────────────────────────
+
+Precisas de:
+  ✅ Um computador (Windows, Mac ou Linux)
+  ✅ Android Studio instalado (grátis): https://developer.android.com/studio
+  ✅ Conta de programador Google Play (25€, pagamento único):
+     https://play.google.com/console/signup
+
+Passos:
+  1. Clona o repositório para o teu computador
+  2. Corre: npm install
+  3. Corre: npm run sync
+  4. Abre a pasta "android" no Android Studio
+     (ou corre: npm run android)
+  5. Em Android Studio: Build → Generate Signed Bundle / APK
+     - Escolhe "Android App Bundle"
+     - Cria uma nova "keystore" (chave de assinatura) — guarda-a bem,
+       vais precisar dela em todas as atualizações futuras da app
+  6. Isto gera um ficheiro .aab
+  7. Na Google Play Console, cria uma nova app e submete o .aab
+  8. Preenche ficha da loja (descrição, capturas de ecrã, ícone, política
+     de privacidade) e envia para revisão
+
+A revisão da Google demora normalmente 1-3 dias.
+
+───────────────────────────────────────────────────────────────────────────────
+OPÇÃO C — PUBLICAR NA APP STORE (iPhone)
+───────────────────────────────────────────────────────────────────────────────
+
+Precisas de:
+  ✅ Um computador Mac com Xcode instalado (grátis, só funciona em Mac)
+  ✅ Conta Apple Developer Program (99$/ano):
+     https://developer.apple.com/programs/
+
+Passos:
+  1. No Mac, clona o repositório e corre: npm install && npm run sync
+  2. Abre: npm run ios (ou abre ios/App/App.xcworkspace diretamente)
+  3. No Xcode, em "Signing & Capabilities", seleciona a tua equipa
+     de programador
+  4. Product → Archive, depois "Distribute App" → App Store Connect
+  5. Em https://appstoreconnect.apple.com, cria a ficha da app e submete
+     para revisão
+
+A revisão da Apple demora normalmente 1-2 dias.
+
+───────────────────────────────────────────────────────────────────────────────
+ÍCONE E ECRÃ DE ABERTURA (SPLASH SCREEN)
+───────────────────────────────────────────────────────────────────────────────
+
+Neste momento a app usa o ícone genérico do Capacitor. Para colocar o
+logótipo da CML / PAPL:
+
+  1. Cria uma imagem quadrada (mín. 1024×1024px) do logótipo
+  2. Instala a ferramenta: npm install -D @capacitor/assets
+  3. Guarda a imagem como "assets/icon.png" e "assets/splash.png"
+  4. Corre: npx capacitor-assets generate
+  5. Corre: npm run sync
+
+Isto gera automaticamente todos os tamanhos de ícone necessários para
+Android e iOS.
+
+───────────────────────────────────────────────────────────────────────────────
+O SITE NO GITHUB PAGES CONTINUA A FUNCIONAR
+───────────────────────────────────────────────────────────────────────────────
+
+Não precisas de desligar o GitHub Pages. O ficheiro index.html continua a
+funcionar como site normal (o que já tinhas) — a app nativa é apenas uma
+forma adicional de distribuir o mesmo conteúdo através das lojas de apps.
+
+═══════════════════════════════════════════════════════════════════════════════
