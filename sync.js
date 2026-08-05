@@ -348,9 +348,11 @@
     }
     pull();
     flushQueue();
+    localRecords.forEach(schedulePhotoUpload); // envia/limpa fotos antigas por sincronizar (ver README)
     window.addEventListener("online", () => {
       pull();
       flushQueue();
+      localRecords.forEach(schedulePhotoUpload);
     });
     window.addEventListener("offline", () => setStatus("offline"));
   }
