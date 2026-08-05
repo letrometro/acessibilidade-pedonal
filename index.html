@@ -11,8 +11,10 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <title>Selo de Acessibilidade — Avaliação</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
 <script src="vendor/supabase.js"></script>
 <script src="sync.js"></script>
+<script src="vendor/leaflet.js"></script>
 <style>
   :root{
     --bg:#EEF2F7; --surface:#FFFFFF; --ink:#14213D; --ink-soft:#43506A;
@@ -55,7 +57,7 @@
   }
   header.top .back:active{background:rgba(255,255,255,.25)}
 
-  .wrap{padding:16px 16px 90px}
+  .wrap{padding:16px 16px 100px}
 
   /* ---------- List view ---------- */
   .list-head{display:flex;align-items:baseline;justify-content:space-between;margin:4px 2px 14px;gap:10px}
@@ -148,6 +150,38 @@
     background:linear-gradient(to top,var(--bg) 62%,rgba(238,242,247,0));
     max-width:620px;margin:0 auto;
   }
+
+  /* ---------- Barra inferior (Avaliações / Mapa / Acerca) ---------- */
+  .bottombar{position:fixed;left:0;right:0;bottom:0;z-index:30;max-width:620px;margin:0 auto}
+  .tabnav{display:flex;background:var(--surface);border-top:1px solid var(--line-soft);
+    padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -2px 12px rgba(20,33,61,.06)}
+  .tabnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 4px 8px;color:var(--muted);font-size:10.5px;font-weight:700}
+  .tabnav-btn svg{width:22px;height:22px}
+  .tabnav-btn[aria-pressed="true"]{color:var(--accent)}
+  .fab-new{
+    position:absolute;right:16px;bottom:calc(100% + 14px);width:56px;height:56px;
+    border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;
+    box-shadow:0 6px 16px rgba(30,95,214,.35);border:none;
+  }
+  .fab-new:active{background:var(--accent-ink)}
+
+  /* ---------- Mapa ---------- */
+  .map-canvas{height:65vh;min-height:320px;border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+  .leaflet-div-icon{background:transparent;border:none} /* remove o quadrado branco por omissão do Leaflet */
+  .marker-dot{width:16px;height:16px;border-radius:50%;border:2.5px solid #fff;
+    box-shadow:0 1px 4px rgba(20,33,61,.4)}
+  .marker-dot.ok{background:var(--yes)} .marker-dot.no{background:var(--no)} .marker-dot.inc{background:var(--na)}
+  .map-popup{font-family:var(--font)}
+  .map-popup .nm{font-weight:700;font-size:14px;margin-bottom:4px}
+  .map-popup a{color:var(--accent);font-weight:700;font-size:13px}
+
+  /* ---------- Acerca ---------- */
+  .about-body{padding:16px 18px}
+  .about-body p{margin:0 0 12px;color:var(--ink-soft);font-size:14px;line-height:1.55}
+  .about-body p:last-child{margin-bottom:0}
+  .about-body h4{margin:0 0 6px;font-size:13px;color:var(--ink)}
+  .about-version{font-size:12px;color:var(--muted);text-align:center;margin-top:18px}
   .btn{
     width:100%;padding:15px;border-radius:13px;font-weight:700;font-size:16px;
     display:flex;align-items:center;justify-content:center;gap:9px;letter-spacing:-.1px;
@@ -384,6 +418,49 @@
     <div id="listBody"></div>
   </div>
 
+  <!-- MAP VIEW -->
+  <div class="wrap" id="mapView" style="display:none">
+    <div class="list-head">
+      <h2>Mapa</h2>
+      <span class="count-pill" id="mapCountPill"></span>
+    </div>
+    <div class="empty" id="mapEmpty" style="display:none">
+      <div class="ico">🗺️</div>
+      <p>Sem localizações registadas</p>
+      <span>Adiciona coordenadas (GPS) às avaliações para as veres aqui.</span>
+    </div>
+    <div class="map-canvas" id="mapCanvas"></div>
+    <div class="vlegend" style="margin-top:12px">
+      <span class="k"><i class="sw ok"></i>Com selo</span>
+      <span class="k"><i class="sw no"></i>Excluído</span>
+      <span class="k"><i class="sw na"></i>Pendente</span>
+    </div>
+  </div>
+
+  <!-- ABOUT VIEW -->
+  <div class="wrap" id="aboutView" style="display:none">
+    <div class="list-head"><h2>Acerca</h2></div>
+    <section class="block">
+      <div class="about-body">
+        <h4>O que é</h4>
+        <p>O <b>Selo de Acessibilidade</b> avalia a acessibilidade de estabelecimentos de comércio,
+        serviços e restauração no âmbito do Decreto-Lei n.º 163/2006. Cada avaliação regista uma
+        fotografia do estabelecimento, responde a 12 critérios técnicos e atribui um veredito
+        automático com base em três critérios eliminatórios: entrada sem ressalto, circulação
+        ≥ 0,80 m e porta (pivotante ou automática) acessível.</p>
+        <h4>Dados e sincronização</h4>
+        <p>As avaliações ficam sempre guardadas primeiro no dispositivo — a app funciona offline
+        depois da primeira abertura. Quando a sincronização está configurada, os registos e
+        fotografias passam também a ficar disponíveis noutros dispositivos que usem o mesmo
+        código de equipa (indicador junto ao contador de avaliações, na lista).</p>
+        <h4>Exportação</h4>
+        <p>Podes exportar uma avaliação (botão "Exportar" no formulário) ou todas (ícone junto ao
+        contador, na lista) em CSV, para usar em Excel ou noutro sistema de informação geográfica.</p>
+      </div>
+    </section>
+    <p class="about-version">Selo de Acessibilidade</p>
+  </div>
+
   <!-- FORM VIEW -->
   <div class="wrap" id="formView" style="display:none">
 
@@ -487,12 +564,25 @@
     <p class="hint">Os dados ficam guardados neste dispositivo. O veredito é indicativo e não substitui uma vistoria técnica formal.</p>
   </div>
 
-  <!-- Floating action -->
-  <div class="fab" id="fabList">
-    <button class="btn btn-primary" onclick="newEval()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-      Nova avaliação
+  <!-- Barra inferior (Avaliações / Mapa / Acerca) -->
+  <div class="bottombar" id="bottomBar">
+    <button class="fab-new" onclick="newEval()" title="Nova avaliação" aria-label="Nova avaliação">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>
     </button>
+    <nav class="tabnav" id="tabNav">
+      <button class="tabnav-btn" id="navBtnList" onclick="goList()" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span>Avaliações</span>
+      </button>
+      <button class="tabnav-btn" id="navBtnMap" onclick="goMap()" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M9 4L3 6.5v13L9 17m0-13l6 2m-6-2v13m6-11l6-2.5v13L15 17m0-13v13m0-13l-6 2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Mapa</span>
+      </button>
+      <button class="tabnav-btn" id="navBtnAbout" onclick="goAbout()" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6M12 7.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <span>Acerca</span>
+      </button>
+    </nav>
   </div>
   <div class="fab" id="fabForm" style="display:none">
     <button class="btn btn-primary" id="finalizeBtn" onclick="finalizeEval()">
@@ -722,30 +812,99 @@ function migrateCoord(r){
   if(window.Sync){
     Sync.init({
       records,
-      onChange(updated){ records=updated; renderList(); },
+      onChange(updated){ records=updated; if(topView==="map") renderMap(); else renderList(); },
       onStatus(status){ updateSyncBadge(status); }
     });
   }
 })();
 
 /* ================= Navegação ================= */
+let topView="list"; // "list" | "map" | "about" — usado para saber o que reatualizar ao sincronizar
+function setActiveNav(view){
+  const ids={list:"navBtnList",map:"navBtnMap",about:"navBtnAbout"};
+  Object.values(ids).forEach(id=>document.getElementById(id).setAttribute("aria-pressed","false"));
+  if(ids[view]) document.getElementById(ids[view]).setAttribute("aria-pressed","true");
+}
+function showTopView(view){
+  document.getElementById("listView").style.display = view==="list" ? "" : "none";
+  document.getElementById("mapView").style.display = view==="map" ? "" : "none";
+  document.getElementById("aboutView").style.display = view==="about" ? "" : "none";
+  document.getElementById("formView").style.display = "none";
+  document.getElementById("bottomBar").style.display = "";
+  document.getElementById("fabForm").style.display = "none";
+  document.getElementById("backBtn").style.display = "none";
+  setActiveNav(view);
+  topView=view;
+  current=null; window.scrollTo(0,0);
+}
 function goList(){
-  document.getElementById("listView").style.display="";
-  document.getElementById("formView").style.display="none";
-  document.getElementById("fabList").style.display="";
-  document.getElementById("fabForm").style.display="none";
-  document.getElementById("backBtn").style.display="none";
+  showTopView("list");
   document.getElementById("topTitle").textContent="Selo de Acessibilidade";
   document.getElementById("topSub").textContent="Comércio · Serviços · Restauração";
-  current=null; window.scrollTo(0,0); renderList();
+  renderList();
+}
+function goMap(){
+  showTopView("map");
+  document.getElementById("topTitle").textContent="Mapa";
+  document.getElementById("topSub").textContent="Localização das avaliações";
+  renderMap();
+}
+function goAbout(){
+  showTopView("about");
+  document.getElementById("topTitle").textContent="Acerca";
+  document.getElementById("topSub").textContent="Selo de Acessibilidade";
 }
 function goForm(){
   document.getElementById("listView").style.display="none";
+  document.getElementById("mapView").style.display="none";
+  document.getElementById("aboutView").style.display="none";
   document.getElementById("formView").style.display="";
-  document.getElementById("fabList").style.display="none";
+  document.getElementById("bottomBar").style.display="none";
   document.getElementById("fabForm").style.display="";
   document.getElementById("backBtn").style.display="";
   window.scrollTo(0,0);
+}
+
+/* ================= Mapa ================= */
+let mapInstance=null, mapMarkersLayer=null;
+function seloIconClass(state){ return state==="atribuido"?"ok":state==="excluido"?"no":"inc"; }
+function renderMap(){
+  const withCoords = records.filter(r=>{
+    const lat=parseFloat(r.lat), lon=parseFloat(r.lon);
+    return !isNaN(lat) && !isNaN(lon);
+  });
+  document.getElementById("mapCountPill").textContent =
+    withCoords.length ? withCoords.length+(withCoords.length===1?" ponto":" pontos") : "";
+  document.getElementById("mapEmpty").style.display = withCoords.length ? "none" : "";
+  document.getElementById("mapCanvas").style.display = withCoords.length ? "" : "none";
+  if(!withCoords.length) return;
+
+  if(!mapInstance){
+    mapInstance = L.map("mapCanvas", {zoomControl:true});
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+    }).addTo(mapInstance);
+    mapMarkersLayer = L.layerGroup().addTo(mapInstance);
+  }
+
+  mapMarkersLayer.clearLayers();
+  const bounds=[];
+  withCoords.forEach(r=>{
+    const lat=parseFloat(r.lat), lon=parseFloat(r.lon);
+    const cls=seloIconClass(selo(r).state);
+    const icon=L.divIcon({className:"",html:`<span class="marker-dot ${cls}"></span>`,iconSize:[16,16],iconAnchor:[8,8]});
+    const nm = r.nome ? esc(r.nome) : "Sem nome";
+    L.marker([lat,lon],{icon})
+      .bindPopup(`<div class="map-popup"><div class="nm">${nm}</div><a href="#" onclick="openEval('${r.id}');return false;">Ver avaliação</a></div>`)
+      .addTo(mapMarkersLayer);
+    bounds.push([lat,lon]);
+  });
+  setTimeout(()=>{
+    mapInstance.invalidateSize();
+    if(bounds.length===1) mapInstance.setView(bounds[0],16);
+    else mapInstance.fitBounds(bounds,{padding:[24,24]});
+  },50);
 }
 
 /* ================= Lista ================= */
