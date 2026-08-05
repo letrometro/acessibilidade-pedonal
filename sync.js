@@ -22,8 +22,8 @@
   // fica a cargo das políticas RLS definidas em schema.sql.
   // ---------------------------------------------------------------------
   const CONFIG = {
-    url: "", // ex.: "https://xxxxxxxxxxxx.supabase.co"
-    anonKey: "", // ex.: "eyJhbGciOi..."
+    url: "https://mmmuoqubzxgnqauvssbi.supabase.co",
+    anonKey: "sb_publishable_As8XsV2Ie0fVClhMkD4YpQ_jHOE6LVR",
     table: "avaliacoes",
     bucket: "fotos",
   };
