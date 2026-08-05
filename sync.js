@@ -294,6 +294,7 @@
       const idx = localRecords.findIndex((r) => r.id === record.id);
       if (idx < 0) return; // registo foi eliminado entretanto
       localRecords[idx].foto_url = url;
+      localRecords[idx].foto = null; // já está na nuvem — liberta o espaço local (base64)
       if (origSave) origSave(localRecords);
       enqueue(record.id);
       flushQueue().catch(() => {});
@@ -310,6 +311,13 @@
 
     Store.load = async function () {
       const data = await load();
+      // rede de segurança: liberta base64 de fotos que já ficaram com foto_url
+      // (ex.: app fechada entre o envio e a limpeza local em schedulePhotoUpload)
+      let trimmed = false;
+      data.forEach((r) => {
+        if (r.foto && r.foto_url) { r.foto = null; trimmed = true; }
+      });
+      if (trimmed) origSave(data);
       localRecords = data;
       saveKnown(snapshot(data));
       return data;
