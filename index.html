@@ -428,11 +428,11 @@
       <div class="block-body">
         <div class="field">
           <label class="required" for="fNome">Nome do estabelecimento</label>
-          <input type="text" id="fNome" placeholder="Ex.: Padaria Central">
+          <input type="text" id="fNome" placeholder="Ex.: Padaria Central" autocomplete="off" autocorrect="off" spellcheck="false" name="estabelecimento-nome">
         </div>
         <div class="field">
           <label for="fPolicia">Número de polícia</label>
-          <input type="text" id="fPolicia" placeholder="Ex.: Rua Augusta, 45 A">
+          <input type="text" id="fPolicia" placeholder="Ex.: Rua Augusta, 45 A" autocomplete="off" autocorrect="off" spellcheck="false" name="estabelecimento-policia">
         </div>
         <div class="field">
           <label>Atividade</label>
@@ -453,8 +453,8 @@
         <div class="field">
           <label>Coordenadas</label>
           <div class="geo-row">
-            <input type="text" id="fLat" placeholder="Latitude" inputmode="decimal">
-            <input type="text" id="fLon" placeholder="Longitude" inputmode="decimal">
+            <input type="text" id="fLat" placeholder="Latitude" inputmode="decimal" autocomplete="off" name="coord-lat">
+            <input type="text" id="fLon" placeholder="Longitude" inputmode="decimal" autocomplete="off" name="coord-lon">
             <button class="geo-btn" id="geoBtn" onclick="getLoc()" title="Obter localização atual (GPS)" aria-label="Obter localização atual (GPS)">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
@@ -584,7 +584,7 @@ function renderCritCard(){
       <button class="opt nao" data-v="Não" onclick="answer('${c.k}','Não',this)">Não</button>
       <button class="opt na"  data-v="N/a" onclick="answer('${c.k}','N/a',this)">N/a</button>
     </div>
-    <textarea placeholder="Observações…" oninput="setObs('${c.k}',this.value)">${esc(a.obs||"")}</textarea>
+    <textarea placeholder="Observações…" autocomplete="off" spellcheck="false" oninput="setObs('${c.k}',this.value)">${esc(a.obs||"")}</textarea>
   </div>`;
   refreshCrit(c.k);
   updateCritProgress(list);
