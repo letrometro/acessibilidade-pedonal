@@ -889,7 +889,7 @@ function renderMap(){
   }
 
   mapMarkersLayer.clearLayers();
-  const bounds=[];
+  let latest=null;
   withCoords.forEach(r=>{
     const lat=parseFloat(r.lat), lon=parseFloat(r.lon);
     const cls=seloIconClass(selo(r).state);
@@ -898,12 +898,11 @@ function renderMap(){
     L.marker([lat,lon],{icon})
       .bindPopup(`<div class="map-popup"><div class="nm">${nm}</div><a href="#" onclick="openEval('${r.id}');return false;">Ver avaliação</a></div>`)
       .addTo(mapMarkersLayer);
-    bounds.push([lat,lon]);
+    if(!latest || (r.atualizado||0) > (latest.atualizado||0)) latest = {lat, lon, atualizado:r.atualizado};
   });
   setTimeout(()=>{
     mapInstance.invalidateSize();
-    if(bounds.length===1) mapInstance.setView(bounds[0],16);
-    else mapInstance.fitBounds(bounds,{padding:[24,24]});
+    mapInstance.setView([latest.lat, latest.lon], 16); // enquadra sempre o registo mais recente
   },50);
 }
 
