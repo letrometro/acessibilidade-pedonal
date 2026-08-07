@@ -376,6 +376,11 @@
   .sheet .grab{width:38px;height:4px;border-radius:100px;background:var(--line);margin:8px auto 14px}
   .sheet h3{margin:0 0 4px;font-size:18px;letter-spacing:-.3px}
   .sheet p{margin:0 0 16px;color:var(--muted);font-size:13.5px}
+  .sub-options{display:flex;flex-direction:column;gap:8px;max-height:45vh;overflow-y:auto;margin-bottom:6px}
+  .sub-opt{padding:13px 14px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    background:#fff;font-weight:600;font-size:14.5px;color:var(--ink-soft);text-align:left}
+  .sub-opt:active{background:var(--line-soft)}
+  .sub-opt[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
 
   .hint{font-size:12px;color:var(--muted);margin:14px 4px 0;text-align:center;line-height:1.5}
   .required::after{content:" *";color:var(--no)}
@@ -518,6 +523,9 @@
             <button class="opt act" data-v="Restauração" onclick="pickAct(this)">Restauração</button>
             <button class="opt act" data-v="Serviços" onclick="pickAct(this)">Serviços</button>
           </div>
+          <div id="subBadgeRow" style="margin-top:9px;display:none">
+            <button class="tag" id="subBadge" onclick="openSubSheet(current.atividade)"></button>
+          </div>
         </div>
         <div class="field">
           <label>Dentro do âmbito do DL 163/2006</label>
@@ -602,6 +610,15 @@
   <button class="btn btn-ghost" style="margin-top:9px" onclick="closeSheet()">Cancelar</button>
 </div>
 
+<div class="sheet-bg" id="subSheetBg" onclick="closeSubSheet()"></div>
+<div class="sheet" id="subSheet">
+  <div class="grab"></div>
+  <h3 id="subSheetTitle">Subcategoria</h3>
+  <p>Escolhe a subcategoria mais próxima (opcional).</p>
+  <div class="sub-options" id="subOptions"></div>
+  <button class="btn btn-ghost" style="margin-top:9px" onclick="closeSubSheet()">Fechar</button>
+</div>
+
 <script>
 /* ================= Dados dos critérios (da grelha original) ================= */
 const CRITERIA = [
@@ -618,6 +635,13 @@ const CRITERIA = [
   {k:"plataforma",n:"Plataforma elevatória",            info:"Cabina 1,0 m × 0,75 m e porta 0,80 m. Rotação de 360º antes de entrar. Capacidade 300 kg."},
   {k:"balcao",    n:"Balcão de atendimento / pagamento", info:"Altura entre 0,75 m e 0,85 m, situado no percurso acessível."}
 ];
+
+/* Subcategorias por atividade (ver "tipo de atividade.xlsx") */
+const SUBCATEGORIAS = {
+  "Comércio": ["Vestuário", "Calçado e Malas", "Oculistas", "Relógios e ourivesaria"],
+  "Restauração": ["Fast food", "Convencional"],
+  "Serviços": ["Bancos e seguradoras", "Hoteis", "Agências imobiliárias", "Consultório", "Decoração"]
+};
 
 /* Critérios que só se aplicam a certas atividades → os restantes ficam N/a automático */
 const ACTIVITY_SCOPE = { provadores:["Comércio"], mesas:["Restauração"] };
@@ -762,7 +786,7 @@ function blankRecord(){
   const answers = {};
   CRITERIA.forEach(c=>answers[c.k]={resp:null,obs:"",auto:false});
   return {id:"e"+Date.now()+Math.floor(Math.random()*999),
-    nome:"",policia:"",atividade:null,ambito:null,lat:"",lon:"",foto:null,foto_url:null,
+    nome:"",policia:"",atividade:null,subatividade:null,ambito:null,lat:"",lon:"",foto:null,foto_url:null,
     status:"rascunho",finalizado:null,answers,criado:null,atualizado:null};
 }
 
@@ -999,7 +1023,7 @@ function renderList(){
       : `<span class="badge inc">Pendente</span>`;
     const nm = r.nome ? esc(r.nome) : "Sem nome";
     const meta=[];
-    if(r.atividade) meta.push(`<span class="tag">${esc(r.atividade)}</span>`);
+    if(r.atividade) meta.push(`<span class="tag">${esc(r.atividade)}${r.subatividade?" · "+esc(r.subatividade):""}</span>`);
     if(recStatus(r)==="realizada" && r.finalizado)
       meta.push("Finalizada "+new Date(r.finalizado).toLocaleDateString("pt-PT",{day:"numeric",month:"short",year:"numeric"}));
     else meta.push(`<span class="tag draft">Em curso</span>`);
@@ -1034,6 +1058,7 @@ function buildForm(){
   // segmentos caracterização
   setSeg("fAtividade",r.atividade);
   setSeg("fAmbito",r.ambito);
+  renderSubBadge();
   document.getElementById("delBtn").style.display = r.criado ? "" : "none";
   // foto
   renderPhoto();
@@ -1060,11 +1085,44 @@ function pickAct(btn){
   const g=btn.parentElement;
   const same = current.atividade===btn.dataset.v;
   [...g.children].forEach(b=>b.setAttribute("aria-pressed","false"));
-  if(same){ current.atividade=null; }
-  else{ btn.setAttribute("aria-pressed","true"); current.atividade=btn.dataset.v; }
+  if(same){
+    current.atividade=null; current.subatividade=null;
+  }else{
+    btn.setAttribute("aria-pressed","true");
+    current.atividade=btn.dataset.v; current.subatividade=null; // nova atividade → limpa subcategoria antiga
+  }
+  renderSubBadge();
   applyActivityScope(true);
   renderCritCard(); // a lista de critérios aplicáveis pode ter mudado
   updateVerdict();
+  if(!same) openSubSheet(current.atividade);
+}
+
+/* ---- Subcategoria ---- */
+function renderSubBadge(){
+  const row=document.getElementById("subBadgeRow"), badge=document.getElementById("subBadge");
+  if(current.subatividade){ badge.textContent=current.subatividade; row.style.display=""; }
+  else{ row.style.display="none"; }
+}
+function openSubSheet(atividade){
+  const opts=SUBCATEGORIAS[atividade];
+  if(!opts||!opts.length) return;
+  document.getElementById("subSheetTitle").textContent="Subcategoria — "+atividade;
+  document.getElementById("subOptions").innerHTML=opts.map(o=>
+    `<button class="sub-opt" data-v="${esc(o)}" aria-pressed="${current.subatividade===o}" onclick="pickSubAct(this)">${esc(o)}</button>`
+  ).join("");
+  document.getElementById("subSheetBg").classList.add("show");
+  document.getElementById("subSheet").classList.add("show");
+}
+function closeSubSheet(){
+  document.getElementById("subSheetBg").classList.remove("show");
+  document.getElementById("subSheet").classList.remove("show");
+}
+function pickSubAct(btn){
+  const v=btn.dataset.v;
+  current.subatividade = current.subatividade===v ? null : v;
+  renderSubBadge();
+  closeSubSheet();
 }
 function pickSNA(btn,gid){
   const g=document.getElementById(gid);
@@ -1278,6 +1336,7 @@ function askDelete(){
 function recToRow(r){
   const v=verdict(r), s=selo(r);
   const row={ Nome:r.nome,"Numero de policia":r.policia,Atividade:r.atividade||"",
+    Subcategoria:r.subatividade||"",
     "Ambito DL 163":r.ambito||"",Latitude:r.lat||"",Longitude:r.lon||"","Tem foto":(r.foto||r.foto_url)?"Sim":"Não",
     "Foto URL":r.foto_url||"",
     Selo:(s.state==="atribuido"?"Atribuído":s.state==="excluido"?"Excluído":"Pendente"),
