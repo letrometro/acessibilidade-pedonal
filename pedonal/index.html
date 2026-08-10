@@ -408,6 +408,7 @@
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
           </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:7px;line-height:1.4">Capturadas automaticamente ao fotografar a barreira — pode corrigi-las aqui ou tocar no ícone de GPS para as obter de novo.</div>
         </div>
         <div class="field">
           <label for="fFreguesia">Freguesia</label>
@@ -924,6 +925,7 @@ function handlePhoto(input){
       current.foto=cv.toDataURL("image/jpeg",0.7);
       current.foto_url=null; // força novo envio para o Storage (ver sync.js)
       renderPhoto(); toast("Foto adicionada");
+      getLoc(); // captura automática e sequencial das coordenadas a cada foto — o valor pode sempre ser corrigido à mão
     };
     img.onerror=()=>toast("Não foi possível ler a imagem");
     img.src=e.target.result;
