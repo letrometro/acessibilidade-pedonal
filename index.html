@@ -499,6 +499,17 @@
       <div class="block-body">
         <div class="photo-area" id="photoArea"></div>
         <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(this)" style="display:none">
+        <div class="field" style="margin-top:14px">
+          <label>Coordenadas</label>
+          <div class="geo-row">
+            <input type="text" id="fLat" placeholder="Latitude" inputmode="decimal" autocomplete="off" name="coord-lat">
+            <input type="text" id="fLon" placeholder="Longitude" inputmode="decimal" autocomplete="off" name="coord-lon">
+            <button class="geo-btn" id="geoBtn" onclick="getLoc()" title="Obter localização atual (GPS)" aria-label="Obter localização atual (GPS)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <span class="hint" style="margin:8px 0 0;text-align:left">Preenchidas automaticamente ao tirar a foto — podes corrigir à mão se precisares.</span>
+        </div>
       </div>
     </section>
 
@@ -533,16 +544,6 @@
             <button class="opt sim" data-v="Sim" onclick="pickSNA(this,'fAmbito')">Sim</button>
             <button class="opt nao" data-v="Não" onclick="pickSNA(this,'fAmbito')">Não</button>
             <button class="opt na" data-v="N/a" onclick="pickSNA(this,'fAmbito')">N/a</button>
-          </div>
-        </div>
-        <div class="field">
-          <label>Coordenadas</label>
-          <div class="geo-row">
-            <input type="text" id="fLat" placeholder="Latitude" inputmode="decimal" autocomplete="off" name="coord-lat">
-            <input type="text" id="fLon" placeholder="Longitude" inputmode="decimal" autocomplete="off" name="coord-lon">
-            <button class="geo-btn" id="geoBtn" onclick="getLoc()" title="Obter localização atual (GPS)" aria-label="Obter localização atual (GPS)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v3m0 14v3m10-10h-3M5 12H2m10 5a5 5 0 100-10 5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </button>
           </div>
         </div>
       </div>
@@ -1207,6 +1208,7 @@ function handlePhoto(input){
       current.foto=cv.toDataURL("image/jpeg",0.7);
       current.foto_url=null; // força novo envio para o Storage (ver sync.js)
       renderPhoto(); toast("Foto adicionada");
+      getLoc(); // regista automaticamente as coordenadas a cada foto (pode corrigir à mão)
     };
     img.onerror=()=>toast("Não foi possível ler a imagem");
     img.src=e.target.result;
