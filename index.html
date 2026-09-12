@@ -166,6 +166,38 @@
   }
   .fab-new:active{background:var(--accent-ink)}
 
+  /* ---------- Menu rápido de polegar ---------- */
+  .thumb-fab{
+    position:fixed;right:14px;top:58%;transform:translateY(-50%);
+    width:56px;height:56px;border-radius:50%;z-index:33;
+    background:rgba(20,33,61,.82);color:#fff;display:grid;place-items:center;
+    box-shadow:0 6px 18px rgba(20,33,61,.35);border:1.5px solid rgba(255,255,255,.18);
+    touch-action:none;
+  }
+  .thumb-fab:active{background:rgba(20,33,61,.95)}
+  .thumb-fab[aria-expanded="true"]{background:var(--accent)}
+  .thumb-menu{position:fixed;right:14px;top:58%;width:0;height:0;z-index:32;pointer-events:none}
+  .thumb-menu.open{pointer-events:auto}
+  .thumb-item{
+    position:absolute;left:0;top:0;width:50px;height:50px;margin:-25px 0 0 -25px;
+    border-radius:50%;display:grid;place-items:center;color:#fff;
+    background:rgba(20,33,61,.8);border:1.5px solid rgba(255,255,255,.16);
+    opacity:0;transform:translate(0,0) scale(.4);pointer-events:none;
+    transition:transform .22s cubic-bezier(.34,1.56,.64,1),opacity .16s;
+  }
+  .thumb-item.sat{width:42px;height:42px;margin:-21px 0 0 -21px;background:rgba(20,33,61,.58)}
+  .thumb-menu.open .thumb-item{opacity:1;pointer-events:auto}
+  .thumb-menu.open .thumb-item:nth-child(1){transform:translate(-26px,-118px) scale(1)}
+  .thumb-menu.open .thumb-item:nth-child(2){transform:translate(-64px,-56px) scale(1)}
+  .thumb-menu.open .thumb-item:nth-child(3){transform:translate(-64px,56px) scale(1)}
+  .thumb-menu.open .thumb-item:nth-child(4){transform:translate(-26px,118px) scale(1)}
+  .thumb-menu.open .thumb-item:nth-child(5){transform:translate(-78px,-170px) scale(1)}
+  .thumb-item.active{background:var(--accent);border-color:#fff;box-shadow:0 0 0 5px rgba(30,95,214,.28)}
+  .thumb-item .sync-dot{position:absolute;right:-2px;bottom:-2px;border:2px solid rgba(20,33,61,.9)}
+  @media (prefers-reduced-motion: reduce){ .thumb-item{transition:opacity .12s} }
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
   /* ---------- Mapa ---------- */
   .map-canvas{height:65vh;min-height:320px;border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
   .leaflet-div-icon{background:transparent;border:none} /* remove o quadrado branco por omissão do Leaflet */
@@ -599,8 +631,16 @@
       <span class="fab-label">Finalizar avaliação</span>
     </button>
   </div>
+  <button class="thumb-fab" id="thumbFab" type="button" aria-haspopup="true" aria-expanded="false"
+    aria-label="Menu rápido — mantenha pressionado e arraste o polegar para escolher, ou toque para abrir">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="6" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="18" r="1.7" fill="currentColor"/>
+    </svg>
+  </button>
+  <div class="thumb-menu" id="thumbMenu" role="menu" aria-label="Menu rápido" hidden></div>
 </div>
 
+<div id="a11yAnnounce" class="sr-only" aria-live="polite"></div>
 <div class="toast" id="toast"></div>
 <div class="sheet-bg" id="sheetBg" onclick="closeSheet()"></div>
 <div class="sheet" id="sheet">
@@ -794,12 +834,17 @@ function blankRecord(){
 /* ================= Sincronização (UI) ================= */
 const SYNC_STATUS_LABEL={idle:"sincronizado",syncing:"a sincronizar…",error:"erro de sync",
   offline:"offline",unconfigured:"sync desligado"};
+let lastSyncStatus="unconfigured";
 function updateSyncBadge(status){
+  lastSyncStatus=status;
   const dot=document.getElementById("syncDot"), lbl=document.getElementById("syncLabel");
-  if(!dot||!lbl) return;
-  dot.className="sync-dot "+status;
-  const equipa=(window.Sync&&Sync.configured)?Sync.getEquipa():null;
-  lbl.textContent=(SYNC_STATUS_LABEL[status]||status)+(equipa?" · "+equipa:"");
+  if(dot&&lbl){
+    dot.className="sync-dot "+status;
+    const equipa=(window.Sync&&Sync.configured)?Sync.getEquipa():null;
+    lbl.textContent=(SYNC_STATUS_LABEL[status]||status)+(equipa?" · "+equipa:"");
+  }
+  const td=document.getElementById("thumbSyncDot");
+  if(td) td.className="sync-dot "+status;
 }
 function changeEquipa(){
   if(!window.Sync||!Sync.configured){
@@ -1409,6 +1454,151 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;',
 
 /* Botão exportar-tudo na lista via toque longo no título? Simplesmente adiciona-se atalho: */
 document.querySelector(".list-head h2").addEventListener("dblclick",exportAll);
+
+/* ================= Menu rápido de polegar ================= */
+function announce(msg){
+  const el=document.getElementById("a11yAnnounce");
+  if(el) el.textContent=msg;
+}
+function focusMainHeading(){
+  let el=null;
+  if(document.getElementById("formView").style.display!=="none") el=document.getElementById("topTitle");
+  else if(topView==="list") el=document.querySelector("#listView h2");
+  else if(topView==="map") el=document.querySelector("#mapView h2");
+  else if(topView==="about") el=document.querySelector("#aboutView h2");
+  if(!el) return;
+  if(!el.hasAttribute("tabindex")) el.setAttribute("tabindex","-1");
+  el.focus({preventScroll:true});
+}
+
+(function thumbMenu(){
+  const fab=document.getElementById("thumbFab");
+  const menu=document.getElementById("thumbMenu");
+  if(!fab||!menu) return;
+
+  const ICON={
+    list:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+    map:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 4L3 6.5v13L9 17m0-13l6 2m-6-2v13m6-11l6-2.5v13L15 17m0-13v13m0-13l-6 2" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+    about:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v6M12 7.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    new:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+    close:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+    sync:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 18a4 4 0 01-.5-7.97A5 5 0 0116.9 8H17a4 4 0 010 8H7z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>'
+  };
+
+  function isEditing(){ return document.getElementById("formView").style.display!=="none"; }
+  function buildItems(){
+    const items=[
+      {id:"list",  label:"Avaliações", action:goList, icon:ICON.list},
+      {id:"map",   label:"Mapa",       action:goMap,  icon:ICON.map}
+    ];
+    items.push(isEditing()
+      ? {id:"close", label:"Fechar avaliação", action:()=>goList(), icon:ICON.close}
+      : {id:"new",   label:"Nova avaliação",   action:()=>newEval(), icon:ICON.new});
+    items.push({id:"about", label:"Acerca", action:goAbout, icon:ICON.about});
+    items.push({id:"sync",  label:"Equipa e sincronização", action:()=>changeEquipa(), icon:ICON.sync, sat:true});
+    return items;
+  }
+
+  let open=false, dragging=false, suppressClick=false, activeEl=null, longPressT=null, startX=0, startY=0;
+
+  function render(){
+    const items=buildItems();
+    menu.innerHTML=items.map(it=>
+      `<button type="button" class="thumb-item${it.sat?' sat':''}" role="menuitem" aria-label="${esc(it.label)}">
+        ${it.icon}${it.sat?`<span class="sync-dot ${lastSyncStatus}" id="thumbSyncDot" aria-hidden="true"></span>`:""}
+      </button>`
+    ).join("");
+    [...menu.children].forEach((el,i)=>{ el._item=items[i]; });
+  }
+  function openMenu(){
+    if(open) return;
+    render();
+    open=true;
+    fab.setAttribute("aria-expanded","true");
+    menu.hidden=false;
+    requestAnimationFrame(()=>menu.classList.add("open"));
+  }
+  function closeMenu(focusBack){
+    if(!open){ if(focusBack) fab.focus(); return; }
+    open=false; dragging=false; setActive(null);
+    fab.setAttribute("aria-expanded","false");
+    menu.classList.remove("open");
+    setTimeout(()=>{ if(!open) menu.hidden=true; },220);
+    if(focusBack) fab.focus();
+  }
+  function setActive(el){
+    if(activeEl===el) return;
+    if(activeEl) activeEl.classList.remove("active");
+    activeEl=el;
+    if(activeEl){ activeEl.classList.add("active"); announce(activeEl._item.label); }
+  }
+  function nearestItem(x,y){
+    let best=null,bestD=Infinity;
+    [...menu.children].forEach(el=>{
+      const r=el.getBoundingClientRect();
+      const d=Math.hypot(r.left+r.width/2-x, r.top+r.height/2-y);
+      if(d<bestD){ bestD=d; best=el; }
+    });
+    return bestD<=60 ? best : null;
+  }
+  function activate(el){
+    if(!el||!el._item){ closeMenu(true); return; }
+    const item=el._item;
+    closeMenu(false);
+    item.action();
+    requestAnimationFrame(focusMainHeading);
+  }
+
+  fab.addEventListener("pointerdown",e=>{
+    if(e.button!==undefined && e.button!==0) return;
+    fab.setPointerCapture(e.pointerId);
+    startX=e.clientX; startY=e.clientY; dragging=false; suppressClick=false;
+    clearTimeout(longPressT);
+    longPressT=setTimeout(()=>{ dragging=true; suppressClick=true; openMenu(); },260);
+  });
+  fab.addEventListener("pointermove",e=>{
+    if(open){
+      setActive(nearestItem(e.clientX,e.clientY));
+    }else if(Math.hypot(e.clientX-startX,e.clientY-startY)>8){
+      clearTimeout(longPressT); dragging=true; suppressClick=true; openMenu();
+    }
+  });
+  fab.addEventListener("pointerup",()=>{
+    clearTimeout(longPressT);
+    if(open && dragging && activeEl) activate(activeEl);
+    dragging=false;
+  });
+  fab.addEventListener("pointercancel",()=>{ clearTimeout(longPressT); dragging=false; });
+  fab.addEventListener("click",()=>{
+    if(suppressClick){ suppressClick=false; return; }
+    if(open) closeMenu(true); else openMenu();
+  });
+  fab.addEventListener("keydown",e=>{
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"||e.key==="Enter"||e.key===" "){
+      e.preventDefault(); openMenu();
+      requestAnimationFrame(()=>menu.children[0]&&menu.children[0].focus());
+    }
+  });
+
+  menu.addEventListener("click",e=>{
+    const btn=e.target.closest(".thumb-item");
+    if(btn) activate(btn);
+  });
+  menu.addEventListener("keydown",e=>{
+    const items=[...menu.children];
+    const i=items.indexOf(document.activeElement);
+    if(e.key==="Escape"){ e.preventDefault(); closeMenu(true); }
+    else if(e.key==="ArrowDown"||e.key==="ArrowRight"){ e.preventDefault(); (items[i+1]||items[0]).focus(); }
+    else if(e.key==="ArrowUp"||e.key==="ArrowLeft"){ e.preventDefault(); (items[i-1]||items[items.length-1]).focus(); }
+    else if(e.key==="Enter"||e.key===" "){ e.preventDefault(); activate(document.activeElement); }
+  });
+  document.addEventListener("pointerdown",e=>{
+    if(open && e.target!==fab && !menu.contains(e.target)) closeMenu(false);
+  });
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape" && open) closeMenu(true);
+  });
+})();
 </script>
 <script>
 if("serviceWorker" in navigator){
