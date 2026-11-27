@@ -29,7 +29,7 @@
   };
 
   const LS_EQUIPA = "sync_equipa";
-  const LS_LAST_SYNC_PREFIX = "sync_last_at_"; // + equipa
+  const LS_LAST_SYNC_PREFIX = "sync_last_at_v2_"; // + equipa (v2: força um pull completo para recuperar foto_url em falta)
   const LS_QUEUE = "sync_queue";
   const LS_KNOWN = "sync_known"; // {id: atualizado(ms)} do último estado confirmado
 
@@ -192,6 +192,11 @@
       } else if ((localRecords[idx].atualizado || 0) < remoteMs) {
         localRecords[idx] = remoteRec;
         changed = true;
+      } else if (remoteRec.foto_url && !localRecords[idx].foto_url && !localRecords[idx].foto) {
+        // Mesmo registo, mas a foto foi enviada noutro dispositivo depois da
+        // 1ª sincronização (versões antigas não atualizavam "atualizado").
+        localRecords[idx].foto_url = remoteRec.foto_url;
+        changed = true;
       }
       known[row.id] = remoteMs;
     });
@@ -295,6 +300,9 @@
       if (idx < 0) return; // registo foi eliminado entretanto
       localRecords[idx].foto_url = url;
       localRecords[idx].foto = null; // já está na nuvem — liberta o espaço local (base64)
+      // Marca o registo como alterado: sem isto, os outros dispositivos (que já
+      // receberam o registo sem foto_url) nunca voltam a puxá-lo e não veem a foto.
+      localRecords[idx].atualizado = Date.now();
       if (origSave) origSave(localRecords);
       enqueue(record.id);
       flushQueue().catch(() => {});
